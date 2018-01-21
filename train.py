@@ -159,8 +159,8 @@ if __name__ == '__main__':
     eval_memmaps = load_memmaps(eval_dir)
 
     evals = {}
-    for hidden_width in [340]:
-        for hidden_depth in [5, 6, 7]:
+    for hidden_width in [160]:
+        for hidden_depth in [2]:
             for activation in ['swish5']:
                 params = {
                     'hidden_depth': hidden_depth,
