@@ -39,11 +39,11 @@ def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraini
     filters = int(ranks*input_features * REDUCTION)
     assert filters > 0
     with tf.variable_scope(name):
-        print(f'{name} input shape:', input.shape)
+#         print(f'{name} input shape:', input.shape)
         conv = tf.layers.dropout(input, rate=0.25, training=isTraining)
         conv = tf.layers.conv2d(conv, filters=filters, kernel_size=kernel_size, strides=strides, padding='valid', activation=activation)
         conv = tf.transpose(conv, [0,1,3,2])
-        print(f'{name} output shape:', conv.shape)
+#         print(f'{name} output shape:', conv.shape)
 
     return conv
 
@@ -65,9 +65,9 @@ def convolution_layers(mainData, activation, isTraining):
         num_vranks = int(conv.shape.dims[-3])
         conv = tf.reshape(conv, [-1, NUM_SUITS, num_vranks, num_features])
 
-        print('Before flattening shape:', conv.shape)
+#         print('Before flattening shape:', conv.shape)
         conv = tf.layers.flatten(conv, 'conv_output')
-        print('Flattened convolution output shape:', conv.shape)
+#         print('Flattened convolution output shape:', conv.shape)
 
     return conv
 
