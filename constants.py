@@ -40,6 +40,9 @@ number_re = re.compile(r'^(\d+)([KM]?)$')
 default_vals = {
     'DECK_EPOCHS': 100,
     'DECK_BATCH': 64*1024,
+    'DECK_SCORE': 1,
+    'DECK_MOON': 1,
+    'DECK_TRICK': 1,
 }
 
 def env_val(name) :
@@ -60,6 +63,9 @@ def env_val(name) :
 
 BATCH = env_val('DECK_BATCH')
 EPOCHS = env_val('DECK_EPOCHS')
+SCORE = env_val('DECK_SCORE') == 1
+MOON = env_val('DECK_MOON') == 1
+TRICK = env_val('DECK_TRICK') == 1
 
 MAIN_DATA = 'main_data'
 EXPECTED_SCORE = 'expected_score'
