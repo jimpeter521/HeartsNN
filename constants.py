@@ -37,12 +37,22 @@ MOONPROBS_SHAPE = (MOON_CLASSES*CARDS_IN_DECK,)
 
 number_re = re.compile(r'^(\d+)([KM]?)$')
 
+# TODO: Add a real command line interface instead of this hack using environment variables
+# https://www.pivotaltracker.com/story/show/154507407
 default_vals = {
     'DECK_EPOCHS': 100,
     'DECK_BATCH': 64*1024,
+
+    # These three are really booleans. Use 0 for False, 1 for True
     'DECK_SCORE': 1,
     'DECK_MOON': 1,
     'DECK_TRICK': 1,
+
+     # The number of suits we retain redundantly in the combined layer. 0, 2 and 4 are the only reasonable inupts.
+     # 0 means that the CNN is the only part of the NN that sees the "distribution" data (4 suits by 7 features)
+     # 2 means that the combined NN redundantly sees the two point suits (spades and hearts)
+     # 4 means that the combined NN redundantly sees all four suits as direct input
+    'DECK_REDUN': 4
 }
 
 def env_val(name) :
@@ -66,6 +76,9 @@ EPOCHS = env_val('DECK_EPOCHS')
 SCORE = env_val('DECK_SCORE') == 1
 MOON = env_val('DECK_MOON') == 1
 TRICK = env_val('DECK_TRICK') == 1
+REDUN = env_val('DECK_REDUN')
+
+assert REDUN==0 or REDUN==2 or REDUN==4
 
 MAIN_DATA = 'main_data'
 EXPECTED_SCORE = 'expected_score'
