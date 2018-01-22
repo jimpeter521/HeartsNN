@@ -206,26 +206,21 @@ def highCardInTrick(trickSoFar):
     return None if trickSuit is None else trickSuit*13 + highRank
 
 
-def makeLegalPlays(expectedOutputs, trickSoFar):
-    """ This feature is not just a simple one-hot vector of the cards that the current player may legally play.
-    It also includes one -1.0 (when current player is not leading) for the card that is currently the high card in trick.
-    """
+def makeLegalPlays(expectedOutputs):
+    """ Create a one-hot vector for the cards that the current player can legally play. """
     expanded = [0.0 for _ in range(CARDS_IN_DECK)]
     for row in expectedOutputs:
         card, _, _, _ = row
         expanded[card] = 1.0
-    highCard = highCardInTrick(trickSoFar)
-    if highCard is not None:
-        expanded[highCard] = -1.0
     legalPlays = np.array(expanded, np.float32)
     assert legalPlays.shape == (CARDS_IN_DECK,)
     return legalPlays
 
-def makeTrickSoFar(trickSoFar):
+def makeHighCardInTrick(trickSoFar):
     expanded = [0.0 for _ in range(CARDS_IN_DECK)]
-    for card in trickSoFar:
-        if card != -1:
-            expanded[card] = 1.0
+    card = highCardInTrick(trickSoFar)
+    if card is not None:
+        expanded[card] = 1.0
     expanded = np.array(expanded, np.float32)
     assert expanded.shape == (CARDS_IN_DECK,)
     return expanded
@@ -329,16 +324,13 @@ def toNumpy(state, outFile):
     # The current player is in position 0
 
     # Legal plays is 1.0 for every possible legal play, 0 otherwise
-    legalPlays = makeLegalPlays(state['expectedOutputs'], state['trickSoFar'])
+    legalPlays = makeLegalPlays(state['expectedOutputs'])
     assert legalPlays.shape == (CARDS_IN_DECK,)
 
-    # trickSoFar = makeTrickSoFar(state['trickSoFar'])
-    # assert trickSoFar.shape == (CARDS_IN_DECK,)
+    highCardInTrick = makeHighCardInTrick(state['trickSoFar'])
+    assert highCardInTrick.shape == (CARDS_IN_DECK,)
 
-    distribution = np.concatenate((legalPlays, distribution), axis=0)
-    assert distribution.shape == ((NUM_PLAYERS+1) * CARDS_IN_DECK,)
-
-    distribution = np.concatenate((distribution, pointValueColumn), axis=0)
+    distribution = np.concatenate((distribution, legalPlays, highCardInTrick, pointValueColumn), axis=0)
     assert distribution.shape == (INPUT_FEATURES * CARDS_IN_DECK,)
 
     # Create a vector of 9 values

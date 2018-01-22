@@ -97,11 +97,7 @@ def model_fn(features, labels, mode, params={}):
     conv_layers = convolution_layers(mainData, activation, isTraining)
 
     with tf.variable_scope('legal_plays'):
-        # Here we want a pure legal plays vector.
-        # The original vector will often (3/4 of the time, whenever current player not leading)
-        # have one -1 value that must be set to zero. We will retain the -1 where this vector
-        # is used elsewhere in the model.
-        legalPlays = tf.clip_by_value(mainData[:, 0:CARDS_IN_DECK], 0.0, 1.0)
+        legalPlays = mainData[:, CARDS_IN_DECK*4:CARDS_IN_DECK*5]  # extract the 5th feature column
 
     # print('conv_layers shape:', conv_layers.shape)
     # print('mainData shape:', mainData.shape)

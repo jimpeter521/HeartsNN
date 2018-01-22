@@ -10,10 +10,13 @@ PLAYS_PER_TRICK = 4
 MOON_FLAGS_LEN = 4
 POINTS_SO_FAR_LEN = PLAYS_PER_TRICK + 1 + MOON_FLAGS_LEN
 
-# 6 features columns. The probabilities for each of the 4 players,
-# plus 2 more: legal plays and point value
-# We put legal plays first, then the 4 probabilities for the 4 players, then point value.
-INPUT_FEATURES = NUM_PLAYERS + 2
+# 7 features columns. The probabilities for each of the 4 players,
+# plus 3 more: legal plays, high card in trick, and point value.
+# Note that legal plays is a vector we must extract in the model.
+# We have been placing it first, but we now make it the 5th column (column index 4),
+# as that makes it easier to optionally set whether we include the two non-point suits (clubs & diamonds)
+# redundantly when we combine the CNN output with the non-CNN features.
+INPUT_FEATURES = NUM_PLAYERS + 3
 
 EXTRA_FEATURES = 33
 
