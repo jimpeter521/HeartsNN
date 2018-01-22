@@ -2,9 +2,7 @@ import numpy as np
 
 import tensorflow as tf
 from tensorflow.python.estimator.canned.head import _Head
-
-from constants import (MAIN_INPUT_SHAPE, POINTS_SO_FAR_SHAPE, CARDS_IN_DECK, NUM_SUITS
-                    , INPUT_FEATURES, NUM_RANKS, MAIN_DATA, EXPECTED_SCORE, WIN_TRICK_PROB, MOON_PROB, MOON_CLASSES)
+from constants import *
 
 # We default beta to 5.0 because experimentation shows it to be near optimal for our model.
 # This was of course done with the current model, but the model will evolve, and the best beta might change.
@@ -106,35 +104,39 @@ def model_fn(features, labels, mode, params={}):
     input = tf.layers.dense(combined, hidden_width)
     last_common_layer = hidden_layers(input, hidden_depth, hidden_width, activation)
 
-    with tf.variable_scope(EXPECTED_SCORE):
-        expectedScoreLogits = tf.layers.dense(last_common_layer, CARDS_IN_DECK, name='logits', activation=tf.tanh)
-        expectedScoreLogits = tf.multiply(expectedScoreLogits, legalPlays, name=EXPECTED_SCORE)
-        tf.summary.histogram("expectedScoreLogits", expectedScoreLogits)
+    outputs_dict = {}
 
-    with tf.variable_scope(WIN_TRICK_PROB):
-        winTrickLogits = tf.layers.dense(last_common_layer, CARDS_IN_DECK, name='logits', activation=tf.sigmoid)
-        winTrickLogits = tf.multiply(winTrickLogits, legalPlays, name=EXPECTED_SCORE)
-        tf.summary.histogram("winTrickLogits", winTrickLogits)
+    # At least one of the three heads must be enabled
+    assert SCORE or TRICK or MOON
 
-    with tf.variable_scope(MOON_PROB):
-        moonProbLogits = tf.layers.dense(last_common_layer, MOON_CLASSES*CARDS_IN_DECK, name='logits')
-        moonProbLogits = tf.reshape(moonProbLogits, (-1, CARDS_IN_DECK, MOON_CLASSES), name='reshaped')
+    if SCORE:
+      with tf.variable_scope(EXPECTED_SCORE):
+          expectedScoreLogits = tf.layers.dense(last_common_layer, CARDS_IN_DECK, name='logits', activation=tf.tanh)
+          expectedScoreLogits = tf.multiply(expectedScoreLogits, legalPlays, name=EXPECTED_SCORE)
+          tf.summary.histogram("expectedScoreLogits", expectedScoreLogits)
+      outputs_dict[EXPECTED_SCORE] = expectedScoreLogits
 
-        # Used only for export_outputs. Backprobagation uses softmax_cross_entropy_with_logits below
-        moon_probs = tf.nn.softmax(moonProbLogits, name=MOON_PROB)
+    if TRICK:
+      with tf.variable_scope(WIN_TRICK_PROB):
+          winTrickLogits = tf.layers.dense(last_common_layer, CARDS_IN_DECK, name='logits', activation=tf.sigmoid)
+          winTrickLogits = tf.multiply(winTrickLogits, legalPlays, name=WIN_TRICK_PROB)
+          tf.summary.histogram("winTrickLogits", winTrickLogits)
+      outputs_dict[WIN_TRICK_PROB] = winTrickLogits
 
-    outputs_dict = {
-        EXPECTED_SCORE: expectedScoreLogits,
-        WIN_TRICK_PROB: winTrickLogits,
-        MOON_PROB: moon_probs,
-    }
+    if MOON:
+      with tf.variable_scope(MOON_PROB):
+          moonProbLogits = tf.layers.dense(last_common_layer, MOON_CLASSES*CARDS_IN_DECK, name='logits')
+          moonProbLogits = tf.reshape(moonProbLogits, (-1, CARDS_IN_DECK, MOON_CLASSES), name='reshaped')
+
+          # Used only for export_outputs. Backprobagation uses softmax_cross_entropy_with_logits below
+          moon_probs = tf.nn.softmax(moonProbLogits, name=MOON_PROB)
+      outputs_dict[MOON_PROB] = moon_probs
 
     all_outputs = tf.estimator.export.PredictOutput(outputs_dict)
-    score_only = tf.estimator.export.PredictOutput({EXPECTED_SCORE: expectedScoreLogits})
-
+    default_out = all_outputs if not SCORE else tf.estimator.export.PredictOutput({EXPECTED_SCORE: expectedScoreLogits})
     export_outputs = {
-        tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY: score_only,
-        'all_outputs': all_outputs,
+      tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY: default_out,
+      'all_outputs': all_outputs,
     }
 
     if mode == tf.estimator.ModeKeys.PREDICT:
@@ -145,32 +147,45 @@ def model_fn(features, labels, mode, params={}):
 
     assert labels is not None
 
-    with tf.variable_scope('expected_score_loss'):
-        y_expected_score = labels[EXPECTED_SCORE]
-        expected_score_loss = tf.losses.mean_squared_error(y_expected_score, expectedScoreLogits)
+    if SCORE:
+      with tf.variable_scope('expected_score_loss'):
+          y_expected_score = labels[EXPECTED_SCORE]
+          expected_score_loss = tf.losses.mean_squared_error(y_expected_score, expectedScoreLogits)
 
-    with tf.variable_scope('win_trick_prob_loss'):
-        y_win_trick_prob = labels[WIN_TRICK_PROB]
-        win_trick_prob_loss = tf.losses.mean_squared_error(y_win_trick_prob, winTrickLogits)
+    if TRICK:
+      with tf.variable_scope('win_trick_prob_loss'):
+          y_win_trick_prob = labels[WIN_TRICK_PROB]
+          win_trick_prob_loss = tf.losses.mean_squared_error(y_win_trick_prob, winTrickLogits)
 
-    with tf.variable_scope('moon_prob_loss'):
-        y_moon_prob = tf.reshape(labels[MOON_PROB], (-1, CARDS_IN_DECK, MOON_CLASSES))
-        moon_prob_losses = tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.stop_gradient(y_moon_prob), logits=moonProbLogits)
-        moon_prob_losses = tf.multiply(moon_prob_losses, legalPlays, 'masked')
-        moon_prob_loss = tf.reduce_mean(moon_prob_losses, name='moon_prob_mean_loss')
+    if MOON:
+      with tf.variable_scope('moon_prob_loss'):
+          y_moon_prob = tf.reshape(labels[MOON_PROB], (-1, CARDS_IN_DECK, MOON_CLASSES))
+          moon_prob_losses = tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.stop_gradient(y_moon_prob), logits=moonProbLogits)
+          moon_prob_losses = tf.multiply(moon_prob_losses, legalPlays, 'masked')
+          moon_prob_loss = tf.reduce_mean(moon_prob_losses, name='moon_prob_mean_loss')
 
     with tf.variable_scope('total_loss'):
-        loss_tmp = tf.multiply(expected_score_loss, win_trick_prob_loss)
-        total_loss = tf.multiply(loss_tmp, moon_prob_loss, 'loss_product')
+        total_loss = 1.0
+        if SCORE:
+          total_loss = tf.multiply(total_loss, expected_score_loss)
+        if TRICK:
+          total_loss = tf.multiply(total_loss, win_trick_prob_loss)
+        if MOON:
+          total_loss = tf.multiply(total_loss, moon_prob_loss)
 
     optimizer = tf.train.AdamOptimizer()
     train_op = optimizer.minimize(loss=total_loss, global_step=tf.train.get_global_step())
 
-    eval_metric_ops = {
-        'expected_score_loss': tf.metrics.mean_squared_error(y_expected_score, expectedScoreLogits),
-        'win_trick_prob_loss': tf.metrics.mean_squared_error(y_win_trick_prob, winTrickLogits),
-        'moon_prob_loss': tf.metrics.mean(moon_prob_loss),
-    }
+    eval_metric_ops = {}
+
+    if SCORE:
+      eval_metric_ops['expected_score_loss'] = tf.metrics.mean_squared_error(y_expected_score, expectedScoreLogits)
+
+    if TRICK:
+      eval_metric_ops['win_trick_prob_loss'] = tf.metrics.mean_squared_error(y_win_trick_prob, winTrickLogits)
+
+    if MOON:
+      eval_metric_ops['moon_prob_loss'] = tf.metrics.mean(moon_prob_loss)
 
     return tf.estimator.EstimatorSpec(mode=mode, loss=total_loss, train_op=train_op, export_outputs=export_outputs,
                                         eval_metric_ops=eval_metric_ops)
