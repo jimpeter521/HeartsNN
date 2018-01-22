@@ -99,7 +99,20 @@ def model_fn(features, labels, mode, params={}):
 
     # print('conv_layers shape:', conv_layers.shape)
     # print('mainData shape:', mainData.shape)
-    combined = tf.concat([mainData, conv_layers], axis=-1, name='combined')
+
+    extra_features = mainData[:, INPUT_FEATURES*CARDS_IN_DECK:]
+
+    with tf.variable_scope('combined'):
+        if REDUN == 0:
+            combined = tf.concat([conv_layers, extra_features ], axis=-1, name='combined')
+        else:
+            first_suit = 4-REDUN
+            redundant = extract_distribution(mainData)
+            assert redundant.shape.as_list() == [None, NUM_SUITS, NUM_RANKS, INPUT_FEATURES]
+            redundant = redundant[:, first_suit:, :, :]
+            assert redundant.shape.as_list() == [None, REDUN, NUM_RANKS, INPUT_FEATURES]
+            redundant = tf.layers.flatten(redundant, name='redundant')
+            combined = tf.concat([conv_layers, redundant, extra_features], axis=-1, name='combined')
 
     input = tf.layers.dense(combined, hidden_width)
     last_common_layer = hidden_layers(input, hidden_depth, hidden_width, activation)
