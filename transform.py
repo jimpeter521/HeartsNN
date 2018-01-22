@@ -26,6 +26,14 @@ for i, s in enumerate(rankNames):
 
 cardRegexp = re.compile('([0123456789JQKA]+)\s*((♣️|♦️|♠️|♥️))')
 
+def cardAsSuitAndRank(card):
+    suit = card // NUM_RANKS
+    rank = card % NUM_RANKS
+    return (suit, rank)
+
+def suitAndRankToCard(suit, rank):
+    return suit*NUM_RANKS + rank
+
 def parseCard(s):
     if s == '.':
         return -1
@@ -36,7 +44,7 @@ def parseCard(s):
     assert _suit in asSuit
     rank = asRank[_rank]
     suit = asSuit[_suit]
-    return suit*13 + rank
+    return suitAndRankToCard(suit, rank)
 
 h1regexp = re.compile('Play (\d+), Player Leading (\d), Current Player (\d), Choices (\d+) TrickSuit (\S+)')
 
@@ -195,15 +203,14 @@ def highCardInTrick(trickSoFar):
     trickSuit = None
     for card in trickSoFar:
         if card == -1:
-            break;
-        suit = card // 13
-        rank = card % 13
+            break
+        suit, rank = cardAsSuitAndRank(card)
         if trickSuit is None:
             trickSuit = suit
             highRank = rank
         elif suit == trickSuit and highRank < rank:
             highRank = rank
-    return None if trickSuit is None else trickSuit*13 + highRank
+    return None if trickSuit is None else suitAndRankToCard(trickSuit, highRank)
 
 
 def makeLegalPlays(expectedOutputs):
@@ -216,11 +223,27 @@ def makeLegalPlays(expectedOutputs):
     assert legalPlays.shape == (CARDS_IN_DECK,)
     return legalPlays
 
-def makeHighCardInTrick(trickSoFar):
+def makeCanCardTakeTrick(trickSoFar, expectedOutputs):
+    """ Create a one-hot vector for the legal plays that might possibly take trick.
+    Zeros if it is guaranteed card cannot take trick.
+    We use 0.5 as a hack when we are leading the trick for every legal play. TODO: fix this in c++
+    """
     expanded = [0.0 for _ in range(CARDS_IN_DECK)]
     card = highCardInTrick(trickSoFar)
-    if card is not None:
-        expanded[card] = 1.0
+    if card is None:
+        trickSuit = None
+        trickHigh = None
+    else:
+        trickSuit, trickHigh = cardAsSuitAndRank(card)
+    for row in expectedOutputs:
+        card, _, _, _ = row
+        if trickSuit is None:
+            # This is suboptimal.
+            # TODO: Compute this feature in C++ where we can more easily create correct values
+            expanded[card] = 0.5
+        else:
+            suit, rank = cardAsSuitAndRank(card)
+            expanded[card] = oneIfTrue(suit == trickSuit and rank > trickHigh)
     expanded = np.array(expanded, np.float32)
     assert expanded.shape == (CARDS_IN_DECK,)
     return expanded
@@ -327,10 +350,10 @@ def toNumpy(state, outFile):
     legalPlays = makeLegalPlays(state['expectedOutputs'])
     assert legalPlays.shape == (CARDS_IN_DECK,)
 
-    highCardInTrick = makeHighCardInTrick(state['trickSoFar'])
-    assert highCardInTrick.shape == (CARDS_IN_DECK,)
+    canCardTakeTrick = makeCanCardTakeTrick(state['trickSoFar'], state['expectedOutputs'])
+    assert canCardTakeTrick.shape == (CARDS_IN_DECK,)
 
-    distribution = np.concatenate((distribution, legalPlays, highCardInTrick, pointValueColumn), axis=0)
+    distribution = np.concatenate((distribution, legalPlays, canCardTakeTrick, pointValueColumn), axis=0)
     assert distribution.shape == (INPUT_FEATURES * CARDS_IN_DECK,)
 
     # Create a vector of 9 values
