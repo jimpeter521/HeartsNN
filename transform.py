@@ -8,6 +8,8 @@ import sys
 import numpy as np
 import tensorflow as tf
 
+import memmap
+
 from constants import *
 
 def readLine(f):
@@ -317,7 +319,7 @@ def rotate(distribution, current):
     distribution = np.roll(distribution, current, axis=0)
     return distribution
 
-def toNumpy(state, outFile):
+def toNumpy(state):
     X = np.array([], dtype=np.float32)
     # tranform state into the numpy representation we'll feed to keras/tensorflow
     # returns a pair of arrays (x, label)
@@ -377,57 +379,49 @@ def toNumpy(state, outFile):
     assert winTrickProbs.shape == WIN_TRICK_PROBS_SHAPE
     assert moonProbs.shape == MOONPROBS_SHAPE
 
-    # def floatFeature(value):
-    #     return tf.train.Feature(float_list=tf.train.FloatList(value=value))
-    #
-    # feature = {
-    #     MAIN_DATA: floatFeature(input.tolist()),
-    #     EXPECTED_SCORE: floatFeature(expectedScores.tolist()),
-    #     MOON_PROB: floatFeature(moonProbs.tolist()),
-    #     }
-    #
-    # example = tf.train.Example(features=tf.train.Features(feature=feature))
-    # outFile.write(example.SerializeToString())
+    return (input, expectedScores, winTrickProbs, moonProbs)
 
-    np.save(outFile, input, allow_pickle=False, fix_imports=False)
-    np.save(outFile, expectedScores, allow_pickle=False, fix_imports=False)
-    np.save(outFile, winTrickProbs, allow_pickle=False, fix_imports=False)
-    np.save(outFile, moonProbs, allow_pickle=False, fix_imports=False)
 
-    # with tf.python_io.TFRecordWriter(outFilePath, options=tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.GZIP)) as outFile:
+def parseFile(inFilePath, group):
+    with open(inFilePath, 'r') as inFile:
+        while True:
+            try:
+                state = parseOneState(inFile)
+                oneMain, oneScores, oneWinTrickProbs, oneMoonProbs = toNumpy(state)
 
-def parseFile(inFilePath, outFilePath):
-    with gzip.open(outFilePath, 'wb') as outFile:
-        with open(inFilePath, 'r') as inFile:
-            while True:
-                try:
-                    state = parseOneState(inFile)
-                    toNumpy(state, outFile)
-                except (EOFError, StopIteration):
-                    break
+                group['main'].append(oneMain)
+                group['scores'].append(oneScores)
+                group['winTrick'].append(oneWinTrickProbs)
+                group['moonProb'].append(oneMoonProbs)
+
+            except (EOFError, StopIteration):
+                break
+
 
 def transformOneFile(inFilePath):
     assert os.path.isfile(inFilePath)
-    outFilePath = inFilePath + '.np.gz'
-    parseFile(inFilePath, outFilePath)
+    outDirPath = inFilePath + '.d'
+
+    group = {
+        'main': [],
+        'scores': [],
+        'winTrick': [],
+        'moonProb': [],
+    }
+    parseFile(inFilePath, group)
+    memmap.save_group(group, outDirPath)
+
 
 if __name__ == '__main__':
     np.set_printoptions(linewidth=160)
     inFileName = '??' if len(sys.argv)==1 else sys.argv[1]
-    if os.path.isfile(inFileName):
-        transformBothFiles(inFileName)
-    else:
-        paths = glob.glob(inFileName)
-        if len(paths) > 0:
-            for path in paths:
-                transformOneFile(path)
-        else:
-            trainingPaths = glob.glob(f'training/{inFileName}')
-            validationPaths = glob.glob(f'validation/{inFileName}')
-            if len(trainingPaths)>0 and len(trainingPaths) == len(validationPaths):
-                print('Transforming:', trainingPaths)
-                for path in trainingPaths:
-                    transformOneFile(path)
-                print('Transforming:', validationPaths)
-                for path in validationPaths:
-                    transformOneFile(path)
+
+    trainingPaths = glob.glob(f'training/{inFileName}')
+    validationPaths = glob.glob(f'validation/{inFileName}')
+    if len(trainingPaths)>0 and len(trainingPaths) == len(validationPaths):
+        print('Transforming:', trainingPaths)
+        for path in trainingPaths:
+            transformOneFile(path)
+        print('Transforming:', validationPaths)
+        for path in validationPaths:
+            transformOneFile(path)
