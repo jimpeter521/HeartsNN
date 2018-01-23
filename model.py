@@ -197,14 +197,14 @@ def model_fn(features, labels, mode, params={}):
 
     eval_metric_ops = {}
 
-    # if SCORE:
-    #   eval_metric_ops['expected_score_loss'] = tf.log(tf.metrics.mean_squared_error(y_expected_score, expectedScoreLogits))
-    #
-    # if TRICK:
-    #   eval_metric_ops['win_trick_prob_loss'] = tf.log(tf.metrics.mean_squared_error(y_win_trick_prob, winTrickLogits))
-    #
-    # if MOON:
-    #   eval_metric_ops['moon_prob_loss'] = tf.log(tf.metrics.mean(moon_prob_loss))
+    if SCORE:
+      eval_metric_ops['expected_score_loss'] = tf.metrics.mean_squared_error(y_expected_score, expectedScoreLogits)
+
+    if TRICK:
+      eval_metric_ops['win_trick_prob_loss'] = tf.metrics.mean_squared_error(y_win_trick_prob, winTrickLogits)
+
+    if MOON:
+      eval_metric_ops['moon_prob_loss'] = tf.metrics.mean(moon_prob_loss)
 
     return tf.estimator.EstimatorSpec(mode=mode, loss=total_loss, train_op=train_op, export_outputs=export_outputs,
                                         eval_metric_ops=eval_metric_ops)
