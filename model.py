@@ -164,11 +164,15 @@ def model_fn(features, labels, mode, params={}):
       with tf.variable_scope('expected_score_loss'):
           y_expected_score = labels[EXPECTED_SCORE]
           expected_score_loss = tf.losses.mean_squared_error(y_expected_score, expectedScoreLogits)
+          expected_score_loss = tf.log(expected_score_loss)
+          tf.summary.scalar("expected_score_loss", expected_score_loss)
 
     if TRICK:
       with tf.variable_scope('win_trick_prob_loss'):
           y_win_trick_prob = labels[WIN_TRICK_PROB]
           win_trick_prob_loss = tf.losses.mean_squared_error(y_win_trick_prob, winTrickLogits)
+          win_trick_prob_loss = tf.log(win_trick_prob_loss)
+          tf.summary.scalar("win_trick_prob_loss", win_trick_prob_loss)
 
     if MOON:
       with tf.variable_scope('moon_prob_loss'):
@@ -176,29 +180,31 @@ def model_fn(features, labels, mode, params={}):
           moon_prob_losses = tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.stop_gradient(y_moon_prob), logits=moonProbLogits)
           moon_prob_losses = tf.multiply(moon_prob_losses, legalPlays, 'masked')
           moon_prob_loss = tf.reduce_mean(moon_prob_losses, name='moon_prob_mean_loss')
+          moon_prob_loss = tf.log(moon_prob_loss)
+          tf.summary.scalar("moon_prob_loss", moon_prob_loss)
 
     with tf.variable_scope('total_loss'):
-        total_loss = 1.0
+        total_loss = 0.0
         if SCORE:
-          total_loss = tf.multiply(total_loss, expected_score_loss)
+          total_loss = tf.add(total_loss, expected_score_loss)
         if TRICK:
-          total_loss = tf.multiply(total_loss, win_trick_prob_loss)
+          total_loss = tf.add(total_loss, win_trick_prob_loss)
         if MOON:
-          total_loss = tf.multiply(total_loss, moon_prob_loss)
+          total_loss = tf.add(total_loss, moon_prob_loss)
 
     optimizer = tf.train.AdamOptimizer()
     train_op = optimizer.minimize(loss=total_loss, global_step=tf.train.get_global_step())
 
     eval_metric_ops = {}
 
-    if SCORE:
-      eval_metric_ops['expected_score_loss'] = tf.metrics.mean_squared_error(y_expected_score, expectedScoreLogits)
-
-    if TRICK:
-      eval_metric_ops['win_trick_prob_loss'] = tf.metrics.mean_squared_error(y_win_trick_prob, winTrickLogits)
-
-    if MOON:
-      eval_metric_ops['moon_prob_loss'] = tf.metrics.mean(moon_prob_loss)
+    # if SCORE:
+    #   eval_metric_ops['expected_score_loss'] = tf.log(tf.metrics.mean_squared_error(y_expected_score, expectedScoreLogits))
+    #
+    # if TRICK:
+    #   eval_metric_ops['win_trick_prob_loss'] = tf.log(tf.metrics.mean_squared_error(y_win_trick_prob, winTrickLogits))
+    #
+    # if MOON:
+    #   eval_metric_ops['moon_prob_loss'] = tf.log(tf.metrics.mean(moon_prob_loss))
 
     return tf.estimator.EstimatorSpec(mode=mode, loss=total_loss, train_op=train_op, export_outputs=export_outputs,
                                         eval_metric_ops=eval_metric_ops)
