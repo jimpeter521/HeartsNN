@@ -24,10 +24,7 @@ test:
 disttest:
 	bazel run :disttest
 
-lzcnttest:
-	bazel build :lzcnttest && bazel-bin/lzcnttest
-
-all: opt tournament analyze disttest lzcnttest deal
+all: opt tournament analyze disttest deal
 
 analyze1: analyze
 	bazel-bin/analyze -d 2006d6c0864151ba79c30127   # slam dunk shoot moon current player
