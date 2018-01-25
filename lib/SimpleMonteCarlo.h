@@ -9,7 +9,7 @@ class SimpleMonteCarlo : public Strategy
 public:
   virtual ~SimpleMonteCarlo();
 
-  SimpleMonteCarlo(bool writeData=false);
+  SimpleMonteCarlo(bool writeData=false, bool validateMode=false);
 
   virtual Card choosePlay(const KnowableState& state, Annotator* annotator = 0) const;
 

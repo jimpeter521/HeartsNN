@@ -7,7 +7,7 @@
 class WriteDataAnnotator : public Annotator {
 public:
   ~WriteDataAnnotator();
-  WriteDataAnnotator(const std::string& hash);
+  WriteDataAnnotator(const std::string& hash, bool validateMode=false);
 
   virtual void On_DnnMonteCarlo_choosePlay(const KnowableState& state, PossibilityAnalyzer* analyzer
                                  , const float expectedScore[13], const float moonProb[13][3]);
@@ -19,5 +19,6 @@ public:
 
 private:
   const std::string mHash;
+  const bool mValidateMode;
   FILE*   mFiles[48];
 };

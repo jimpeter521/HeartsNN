@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include <ftw.h>
+#include <unistd.h>
+
 #include "lib/RandomStrategy.h"
 #include "lib/SimpleMonteCarlo.h"
 #include "lib/DnnModelStrategy.h"
@@ -62,7 +66,7 @@ int main(int argc, char** argv)
     player = new DnnMonteCarlo(gModel, true);
   } else {
     opponent = new RandomStrategy();
-    player = new SimpleMonteCarlo(true);
+    player = new SimpleMonteCarlo(true, true);
   }
 
   run(dealIndex, player, opponent);

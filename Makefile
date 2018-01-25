@@ -24,8 +24,6 @@ test:
 disttest:
 	buck run :disttest
 
-all: opt tournament analyze disttest deal
-
 analyze1: analyze
 	analyze -d 2006d6c0864151ba79c30127   # slam dunk shoot moon current player
 
@@ -33,4 +31,9 @@ analyze2: analyze
 	analyze -d 21b91f40fb464bc8fdda384d   # other player (2) shoots moon. May indicate bug in empirical score?
 
 validate:
-	buck build :validate && validate 2006d6c0864151ba79c30127
+	buck build :validate
+
+validate1: validate
+	validate 2006d6c0864151ba79c30127
+
+all: opt tournament analyze disttest deal validate

@@ -18,14 +18,14 @@ SimpleMonteCarlo::~SimpleMonteCarlo() {
   delete mWriteDataAnnotator;
 }
 
-SimpleMonteCarlo::SimpleMonteCarlo(bool writeData)
+SimpleMonteCarlo::SimpleMonteCarlo(bool writeData, bool validateMode)
 : Strategy()
 , mHash()
 , mRolloutStrategy(new RandomStrategy())
 , mWriteDataAnnotator(0)
 {
   if (writeData)
-    mWriteDataAnnotator = new WriteDataAnnotator(asHexString(rng.random128(), 32));
+    mWriteDataAnnotator = new WriteDataAnnotator(asHexString(rng.random128(), 32), validateMode);
 }
 
 static bool floatEqual(float a, float b) {
