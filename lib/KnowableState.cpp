@@ -231,7 +231,7 @@ float oneIfTrue(bool x) {
   return x ? 1.0 : 0.0;
 }
 
-Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, float playExpectedValue[13]) const {
+tensorflow::Tensor KnowableState::Transform() const {
   using namespace std;
   using namespace tensorflow;
 
@@ -368,6 +368,20 @@ Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, float pla
 
   assert(index == kNumFeatures);
 
+  return mainData;
+}
+
+Card KnowableState::TransformAndPredict(const tensorflow::SavedModelBundle& model, float playExpectedValue[13]) const
+{
+  tensorflow::Tensor mainData = Transform();
+  return Predict(model, mainData, playExpectedValue);
+}
+
+Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, tensorflow::Tensor mainData, float playExpectedValue[13]) const
+{
+  using namespace std;
+  using namespace tensorflow;
+
   std::vector<Tensor> outputs;
   auto result = model.session->Run({{"main_data:0", mainData}}, {"expected_score/expected_score:0"}, {}, &outputs);
   if (!result.ok()) {
@@ -375,22 +389,23 @@ Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, float pla
     exit(1);
   }
 
-  float bestExpected = 1e99;
+  Tensor prediction = outputs.at(0);
+  assert(prediction.dims() == 2);
+  assert(prediction.NumElements() == 52);
+  auto vec = prediction.flat<float>();
+
+  CardHand choices = LegalPlays();
+
   Card bestCard;
-  {
-    Tensor prediction = outputs.at(0);
-    assert(prediction.dims() == 2);
-    assert(prediction.NumElements() == 52);
-    auto vec = prediction.flat<float>();
-    CardHand::iterator it(choices);
-    for (int i=0; i<choices.Size(); ++i) {
-      Card card = it.next();
-      float expected = normalizeScore(vec(card));
-      playExpectedValue[i] = expected;
-      if (bestExpected > expected) {
-        bestExpected = expected;
-        bestCard = card;
-      }
+  float bestExpected = 1e99;
+  CardHand::iterator it(choices);
+  for (int i=0; i<choices.Size(); ++i) {
+    Card card = it.next();
+    float expected = normalizeScore(vec(card));
+    playExpectedValue[i] = expected;
+    if (bestExpected > expected) {
+      bestExpected = expected;
+      bestCard = card;
     }
   }
 
