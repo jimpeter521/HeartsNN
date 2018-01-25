@@ -33,6 +33,11 @@ public:
   Suit TrickSuit() const;
   void SetTrickSuit(Suit suit);
 
+  Card HighCardOnTable() const;
+  bool MightCardTakeTrick(Card card) const;
+    // false if the card is not in trick suit or is less than the high card in trick so far.
+    // A true means the card is not ruled out from taking trick, but does not guarantee it will.
+
   // Trick relative
   unsigned PlayerLeadingTrick() const { return mLead; }
   unsigned PlayInTrick() const { return mNextPlay % 4; }

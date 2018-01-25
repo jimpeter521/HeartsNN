@@ -231,7 +231,8 @@ float oneIfTrue(bool x) {
   return x ? 1.0 : 0.0;
 }
 
-tensorflow::Tensor KnowableState::Transform() const {
+tensorflow::Tensor KnowableState::Transform() const
+{
   using namespace std;
   using namespace tensorflow;
 
@@ -255,7 +256,7 @@ tensorflow::Tensor KnowableState::Transform() const {
   assert(kNumExtraFeatures == 33);
 
   const int kNumPlayers = 4;
-  const int kNumFeaturesPerCard = kNumPlayers + 2;
+  const int kNumFeaturesPerCard = kNumPlayers + 3;
   const int kMoonFlagsLen = 4;
   const int kPlaysPerTrick = 4;
 	const int kPointsExtraFeatures = kPlaysPerTrick + 1 + kMoonFlagsLen;
@@ -271,10 +272,24 @@ tensorflow::Tensor KnowableState::Transform() const {
     matrix(0, index) = 0;
   }
 
-  // This is the first feature column
-  // Set to 1 just the elements corresponding to the cards that are legal plays
+  // Fill the "distribution", the p(hascard | card,player)
+  // This must be filled such that the current player is first, then other players in normal order.
+  // This fills the first four "feature columns" of 52 elements each.
   index = 0;
-  CardHand choices = LegalPlays();
+  for (int p=0; p<4; p++) {
+    int player = (CurrentPlayer() + p) % 4;
+    for (int i=0; i<52; i++) {
+      matrix(0, index++) = prob[i][player];
+    }
+  }
+
+  assert(index == 52*4);
+
+  const CardHand choices = LegalPlays();
+
+  // The 5th column is legal plays
+  // Set to 1 just the elements corresponding to the cards that are legal plays
+
   {
     CardHand::iterator it(choices);
     while (!it.done()) {
@@ -282,17 +297,19 @@ tensorflow::Tensor KnowableState::Transform() const {
       matrix(0, index+card) = 1.0;
     }
   }
+  index = 52*5; // we didn't advance index above, so must set it here.
 
-  // Fill in the rest of the "distribution", the p(hascard | card,player)
-  // This must be filled such that the current player is first, then other players in normal order
-  index = 52;
-  for (int p=0; p<4; p++) {
-    int player = (CurrentPlayer() + p) % 4;
-    for (int i=0; i<52; i++) {
-      matrix(0, index++) = prob[i][player];
+  // The 6th column is 'can card take trick?'
+  // It is a subset of legal plays. It is 1 if the card is a legal play and is not ruled out for taking the current trick
+
+  {
+    CardHand::iterator it(choices);
+    while (!it.done()) {
+      Card card = it.next();
+      matrix(0, index+card) = oneIfTrue(MightCardTakeTrick(card));
     }
   }
-  assert(index == 52*5);
+  index = 52*6; // we didn't advance index above, so must set it here.
 
   // The last 52-elem feature column is the number of points each unplayed card is worth.
   // Cards already played score 0 here, and of course non-point cards are also 0.
@@ -308,7 +325,7 @@ tensorflow::Tensor KnowableState::Transform() const {
    }
   }
 
-  assert(index == 52*6);
+  assert(index == 52*7);
 
   // The following code fills 9 slots in the feature vector. These 8 features are "extra" features,
   // but they are not currently part of the `ExtraFeatures` struct.
