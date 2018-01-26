@@ -36,9 +36,9 @@ def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraini
     REDUCTION = 0.8 # Output layer will have 80% of the features of the input layer.
     filters = int(ranks*input_features * REDUCTION)
     assert filters > 0
+    conv = input
     with tf.variable_scope(name):
 #         print(f'{name} input shape:', input.shape)
-        conv = tf.layers.dropout(input, rate=0.25, training=isTraining)
         conv = tf.layers.conv2d(conv, filters=filters, kernel_size=kernel_size, strides=strides, padding='valid', activation=activation)
         conv = tf.transpose(conv, [0,1,3,2])
 #         print(f'{name} output shape:', conv.shape)
