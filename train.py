@@ -92,7 +92,7 @@ def get_input_fn(name, memmaps):
         if samples_this_eval*4 < nsamples:
             # The usual case here. We can double the batch size and leave STEPS alone
             BATCH = BATCH*2
-        else:
+        elif STEPS > 3:
             # We shouldn't increase BATCH size without changing STEPS, or we'll stop processing up to half the data
             # This may increase STEPS at first, from say 64 to something less than 128, but it will eventually
             # reduce to 1.
