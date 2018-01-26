@@ -182,12 +182,12 @@ def train_with_params(train_memmaps, eval_memmaps, params):
         print(f'{epoch+1}/{EPOCHS}: Evaluation:', evaluation, file=sys.stderr)
         eval_loss = evaluation['loss']
         if best_eval_loss > eval_loss:
+            save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn)
             best_eval_loss = eval_loss
             best_eval = evaluation
             if backsteps > 0:
                 print(f'Recovered from backstep with new best loss:{best_eval_loss}', file=sys.stderr)
                 backsteps = 0
-                save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn)
         elif backsteps < BACKSTEP_LIMIT:
             backsteps += 1
             print('Evaluation backstep:', backsteps, file=sys.stderr)
