@@ -78,9 +78,6 @@ EPOCHS = env_val('DECK_EPOCHS')
 SCORE = env_val('DECK_SCORE') == 1
 MOON = env_val('DECK_MOON') == 1
 TRICK = env_val('DECK_TRICK') == 1
-REDUN = env_val('DECK_REDUN')
-
-assert REDUN==0 or REDUN==2 or REDUN==4
 
 MAIN_DATA = 'main_data'
 EXPECTED_SCORE = 'expected_score'

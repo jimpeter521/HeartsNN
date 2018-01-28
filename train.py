@@ -154,7 +154,7 @@ def train_with_params(train_memmaps, eval_memmaps, params):
     hidden_width = params['hidden_width']
     activation = params['activation']
 
-    model_dir_path = f'{ROOT_MODEL_DIR}/d{hidden_depth}w{hidden_width}_{activation}'
+    model_dir_path = f'{ROOT_MODEL_DIR}/d{hidden_depth}w{hidden_width}r{redundancy}_{activation}'
     os.makedirs(model_dir_path, exist_ok=True)
 
     config = tf.estimator.RunConfig(keep_checkpoint_max=20)
@@ -207,7 +207,7 @@ if __name__ == '__main__':
     # if os.path.isdir(ROOT_MODEL_DIR):
     #     shutil.rmtree(ROOT_MODEL_DIR)
 
-    dataDir = 'dxx' if len(sys.argv)==1 else sys.argv[1]
+    dataDir = 'xx.m' if len(sys.argv)==1 else sys.argv[1]
 
     train_dir = f'training/{dataDir}'
     eval_dir = f'validation/{dataDir}'
@@ -221,16 +221,18 @@ if __name__ == '__main__':
     assert len(train_memmaps[0]) <= len(eval_memmaps[0])
 
     evals = {}
-    for hidden_width in [160]:
-        for hidden_depth in [2]:
+    for hidden_width in [300]:
+        for hidden_depth in [1]:
             for activation in ['swish5']:
-                params = {
-                    'hidden_depth': hidden_depth,
-                    'hidden_width': hidden_width,
-                    'activation': activation
-                }
-                results = train_with_params(train_memmaps, eval_memmaps, params)
-                evals[f'd{hidden_depth}w{hidden_width}_{activation}'] = results
+                for redundancy in [2]:
+                    params = {
+                        'hidden_depth': hidden_depth,
+                        'hidden_width': hidden_width,
+                        'activation': activation,
+                        'redundancy': redundancy,
+                    }
+                    results = train_with_params(train_memmaps, eval_memmaps, params)
+                    evals[f'd{hidden_depth}w{hidden_width}r{redundancy}_{activation}'] = results
 
     for k, v in evals.items():
         print(v, k, file=sys.stderr)
