@@ -22,10 +22,10 @@ def extract_distribution(mainData):
     return distribution
 
 def hidden_layers(input, depth, width, activation):
+    output = input
     for i in range(depth):
         with tf.variable_scope(f'hidden_{i}'):
-            output = tf.layers.dense(input, width, activation=activation)
-            input = output
+            output = tf.layers.dense(output, width, activation=activation)
     return output
 
 def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraining=True):
