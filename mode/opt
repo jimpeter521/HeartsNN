@@ -1,0 +1,2 @@
+--config
+cxx.cxxflags=-O3 -Wall -DNDEBUG=1 -std=c++11 -march=native

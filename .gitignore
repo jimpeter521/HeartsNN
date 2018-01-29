@@ -97,3 +97,6 @@ Pods/
 ####
 # Carthage
 Carthage/Build
+.python-version
+.buckd/
+buck-out/

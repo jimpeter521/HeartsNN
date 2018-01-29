@@ -1,0 +1,6 @@
+[cxx]
+  cxxflags=-Wall -std=c++11 -march=native
+  gtest_dep = //googletest:gtest
+
+[python]
+  interpreter = /usr/bin/python2.7

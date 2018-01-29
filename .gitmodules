@@ -1,0 +1,6 @@
+[submodule "googletest"]
+	path = googletest
+	url = git@github.com:njlr/googletest.git
+[submodule "--force"]
+	path = --force
+	url = git@github.com:njlr/googletest.git
