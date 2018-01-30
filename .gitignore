@@ -12,17 +12,15 @@ validation/
 moonhands.txt
 *.save
 
-/bazel-bazel
-/bazel-bin
-/bazel-HeartsNN
-/bazel-genfiles
-/bazel-out
-/bazel-testlogs
-
 .DS_Store
 *.bbprojectd/
 
 *.xcuserstate
+
+#####
+# Buck
+.buckd/
+buck-out/
 
 #####
 # OS X temporary files that should never be committed
@@ -98,5 +96,3 @@ Pods/
 # Carthage
 Carthage/Build
 .python-version
-.buckd/
-buck-out/
