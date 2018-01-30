@@ -88,11 +88,16 @@ def get_input_fn(name, memmaps):
 
     eval = get_input_fn._eval[name] % evals
 
+    p = get_input_fn._eval['p']
+    if p is None:
+        get_input_fn._eval['p'] = p = np.random.permutation(nsamples)
+
     if name == TRAINING and eval == 0:
+        get_input_fn._eval['p'] = p = np.random.permutation(nsamples)
         if samples_this_eval*4 < nsamples:
             # The usual case here. We can double the batch size and leave STEPS alone
             BATCH = BATCH*2
-        else:
+        elif STEPS > 3:
             # We shouldn't increase BATCH size without changing STEPS, or we'll stop processing up to half the data
             # This may increase STEPS at first, from say 64 to something less than 128, but it will eventually
             # reduce to 1.
@@ -101,6 +106,9 @@ def get_input_fn(name, memmaps):
             if STEPS <= 1:
                 STEPS = 1
                 BATCH = nsamples
+        if STEPS <= 16:
+            BATCH = nsamples // STEPS
+
         print(f'********** Bumped batch to {BATCH}, steps to {STEPS}  **********')
         get_input_fn._eval[TRAINING] = 0
         get_input_fn._eval[VALIDATION] = 0
@@ -120,14 +128,16 @@ def get_input_fn(name, memmaps):
             win_trick_data_placeholder = tf.placeholder(tf.float32, batchShape(WIN_TRICK_PROBS_SHAPE), name=WIN_TRICK_PROB)
             moon_data_placeholder = tf.placeholder(tf.float32, batchShape(MOONPROBS_SHAPE), name=MOON_PROB)
 
+        p = get_input_fn._eval['p']
+        assert p is not None
         dataset = tf.data.Dataset.from_tensor_slices((main_data_placeholder, (scores_data_placeholder, win_trick_data_placeholder, moon_data_placeholder)))
         iterator_initializer_hook.iterator_initializer_func = \
             lambda sess: sess.run(
                 iterator.initializer,
-                feed_dict={main_data_placeholder: mainData[start:],
-                           scores_data_placeholder: scoresData[start:],
-                           win_trick_data_placeholder: winTrickProbs[start:],
-                           moon_data_placeholder: moonProbData[start:]
+                feed_dict={main_data_placeholder: mainData[p][start:],
+                           scores_data_placeholder: scoresData[p][start:],
+                           win_trick_data_placeholder: winTrickProbs[p][start:],
+                           moon_data_placeholder: moonProbData[p][start:]
                            })
         dataset = dataset.repeat(1).batch(batchSize)
         iterator = dataset.make_initializable_iterator()
@@ -139,7 +149,8 @@ def get_input_fn(name, memmaps):
 
 get_input_fn._eval = {
     TRAINING: 0,
-    VALIDATION: 0
+    VALIDATION: 0,
+    'p': None
 }
 
 def save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn):
@@ -154,7 +165,7 @@ def train_with_params(train_memmaps, eval_memmaps, params):
     hidden_width = params['hidden_width']
     activation = params['activation']
 
-    model_dir_path = f'{ROOT_MODEL_DIR}/d{hidden_depth}w{hidden_width}_{activation}'
+    model_dir_path = f'{ROOT_MODEL_DIR}/d{hidden_depth}w{hidden_width}r{redundancy}_{activation}'
     os.makedirs(model_dir_path, exist_ok=True)
 
     config = tf.estimator.RunConfig(keep_checkpoint_max=20)
@@ -166,7 +177,7 @@ def train_with_params(train_memmaps, eval_memmaps, params):
     serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     first_backstep_loss = None
-    BACKSTEP_LIMIT = 10
+    BACKSTEP_LIMIT = 3
     backsteps = 0
     best_eval_loss = float('inf')
 
@@ -187,7 +198,7 @@ def train_with_params(train_memmaps, eval_memmaps, params):
             if backsteps > 0:
                 print(f'Recovered from backstep with new best loss:{best_eval_loss}', file=sys.stderr)
                 backsteps = 0
-                save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn)
+            save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn)
         elif backsteps < BACKSTEP_LIMIT:
             backsteps += 1
             print('Evaluation backstep:', backsteps, file=sys.stderr)
@@ -207,7 +218,7 @@ if __name__ == '__main__':
     # if os.path.isdir(ROOT_MODEL_DIR):
     #     shutil.rmtree(ROOT_MODEL_DIR)
 
-    dataDir = 'dxx' if len(sys.argv)==1 else sys.argv[1]
+    dataDir = 'xx.m' if len(sys.argv)==1 else sys.argv[1]
 
     train_dir = f'training/{dataDir}'
     eval_dir = f'validation/{dataDir}'
@@ -221,16 +232,18 @@ if __name__ == '__main__':
     assert len(train_memmaps[0]) <= len(eval_memmaps[0])
 
     evals = {}
-    for hidden_width in [160]:
-        for hidden_depth in [2]:
+    for hidden_width in [300]:
+        for hidden_depth in [1]:
             for activation in ['swish5']:
-                params = {
-                    'hidden_depth': hidden_depth,
-                    'hidden_width': hidden_width,
-                    'activation': activation
-                }
-                results = train_with_params(train_memmaps, eval_memmaps, params)
-                evals[f'd{hidden_depth}w{hidden_width}_{activation}'] = results
+                for redundancy in [2]:
+                    params = {
+                        'hidden_depth': hidden_depth,
+                        'hidden_width': hidden_width,
+                        'activation': activation,
+                        'redundancy': redundancy,
+                    }
+                    results = train_with_params(train_memmaps, eval_memmaps, params)
+                    evals[f'd{hidden_depth}w{hidden_width}r{redundancy}_{activation}'] = results
 
     for k, v in evals.items():
         print(v, k, file=sys.stderr)

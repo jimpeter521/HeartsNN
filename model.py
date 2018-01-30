@@ -22,10 +22,10 @@ def extract_distribution(mainData):
     return distribution
 
 def hidden_layers(input, depth, width, activation):
+    output = input
     for i in range(depth):
         with tf.variable_scope(f'hidden_{i}'):
-            output = tf.layers.dense(input, width, activation=activation)
-            input = output
+            output = tf.layers.dense(output, width, activation=activation)
     return output
 
 def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraining=True):
@@ -33,12 +33,13 @@ def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraini
     input_features = int(input.shape.dims[-2])
     kernel_size = (ranks, input_features)
     strides = (stride, 1)
-    REDUCTION = 0.8 # Output layer will have 80% of the features of the input layer.
+    REDUCTION = 1.0 # Output layer will have 80% of the features of the input layer.
     filters = int(ranks*input_features * REDUCTION)
+    # print(f'Name: {name}, Input features: {input_features}, Output features: {filters}, Kernel size: {kernel_size}')
     assert filters > 0
+    conv = input
     with tf.variable_scope(name):
 #         print(f'{name} input shape:', input.shape)
-        conv = tf.layers.dropout(input, rate=0.25, training=isTraining)
         conv = tf.layers.conv2d(conv, filters=filters, kernel_size=kernel_size, strides=strides, padding='valid', activation=activation)
         conv = tf.transpose(conv, [0,1,3,2])
 #         print(f'{name} output shape:', conv.shape)
@@ -89,6 +90,7 @@ def model_fn(features, labels, mode, params={}):
 
     hidden_width = params['hidden_width']
     hidden_depth = params['hidden_depth']
+    redundancy = params['redundancy']
     activation = activation_fn(params['activation'])
 
     mainData = features[MAIN_DATA]
@@ -103,19 +105,19 @@ def model_fn(features, labels, mode, params={}):
     extra_features = mainData[:, INPUT_FEATURES*CARDS_IN_DECK:]
 
     with tf.variable_scope('combined'):
-        if REDUN == 0:
+        if redundancy == 0:
             combined = tf.concat([conv_layers, extra_features ], axis=-1, name='combined')
         else:
-            first_suit = 4-REDUN
+            first_suit = 4-redundancy
             redundant = extract_distribution(mainData)
             assert redundant.shape.as_list() == [None, NUM_SUITS, NUM_RANKS, INPUT_FEATURES]
             redundant = redundant[:, first_suit:, :, :]
-            assert redundant.shape.as_list() == [None, REDUN, NUM_RANKS, INPUT_FEATURES]
+            assert redundant.shape.as_list() == [None, redundancy, NUM_RANKS, INPUT_FEATURES]
             redundant = tf.layers.flatten(redundant, name='redundant')
             combined = tf.concat([conv_layers, redundant, extra_features], axis=-1, name='combined')
 
-    input = tf.layers.dense(combined, hidden_width)
-    last_common_layer = hidden_layers(input, hidden_depth, hidden_width, activation)
+    combined = hidden_layers(combined, hidden_depth, hidden_width, activation)
+    last_common_layer = tf.layers.dense(combined, hidden_width)
 
     outputs_dict = {}
 

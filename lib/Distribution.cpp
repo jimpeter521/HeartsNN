@@ -152,6 +152,7 @@ void Distribution::PrintProbabilities(float prob[52][4], FILE* out)
 
 void Distribution::Validate(const CardDeck& allUnplayed, uint128_t possibilities) const
 {
+#ifndef NDEBUG
   for (Card c=0; c<52; c++) {
     uint128_t total = 0;
     for (int p=0; p<4; ++p) {
@@ -165,6 +166,7 @@ void Distribution::Validate(const CardDeck& allUnplayed, uint128_t possibilities
       assert(!allUnplayed.HasCard(c));
     }
   }
+#endif
 }
 
 void Distribution::DistributeRemainingToPlayer(const CardArray& remaining, unsigned player, uint128_t possibles)
