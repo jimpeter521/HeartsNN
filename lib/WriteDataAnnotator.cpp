@@ -4,6 +4,8 @@
 #include "lib/GameState.h"
 #include "lib/KnowableState.h"
 #include "lib/PossibilityAnalyzer.h"
+#include "lib/random.h"
+
 #include <stdio.h>
 #include <assert.h>
 #include <sys/stat.h>
@@ -17,8 +19,8 @@ WriteDataAnnotator::~WriteDataAnnotator()
   }
 }
 
-WriteDataAnnotator::WriteDataAnnotator(const std::string& hash, bool validateMode)
-: mHash(hash)
+WriteDataAnnotator::WriteDataAnnotator(bool validateMode)
+: mHash(asHexString(RandomGenerator::gRandomGenerator.random128()))
 , mValidateMode(validateMode)
 {
   if (mValidateMode)
@@ -49,12 +51,10 @@ void WriteDataAnnotator::On_DnnMonteCarlo_choosePlay(const KnowableState& state
                                   , PossibilityAnalyzer* analyzer
                                   , const float expectedScore[13], const float moonProb[13][3])
 {
-  assert(false);
 }
 
 void WriteDataAnnotator::OnGameStateBeforePlay(const GameState& state)
 {
-  assert(false);
 }
 
 std::string FixedPointToString(int x)

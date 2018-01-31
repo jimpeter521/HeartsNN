@@ -1,7 +1,7 @@
 #include "lib/RandomStrategy.h"
-#include "lib/SimpleMonteCarlo.h"
-#include "lib/DnnMonteCarlo.h"
+#include "lib/MonteCarlo.h"
 #include "lib/GameState.h"
+#include "lib/DnnModelIntuition.h"
 #include "lib/DnnMonteCarloAnnotator.h"
 
 #include "lib/random.h"
@@ -21,23 +21,23 @@ RandomGenerator generator;
 const uint128_t kZero = 0;
 const uint128_t kUnset = ~kZero;
 
-Strategy* gOpponent = 0;
-Strategy* gChampion = 0;
+StrategyPtr gOpponent;
+StrategyPtr gChampion;
 uint128_t gDeal = kUnset;
 
 using namespace std;
 using namespace tensorflow;
 
 tensorflow::SavedModelBundle gModel;
-Annotator* gAnnotator = 0;
 
-Strategy* makePlayer(const char* arg) {
-  Strategy* player = 0;
+StrategyPtr makePlayer(const char* arg) {
+  StrategyPtr player;
   if (arg == 0 || std::string(arg) == std::string("random")) {
-    player = new RandomStrategy();
+    player = StrategyPtr(new RandomStrategy());
   }
   else if (std::string(arg) == std::string("simple")) {
-    player = new SimpleMonteCarlo();
+    StrategyPtr intuition = StrategyPtr(new RandomStrategy());
+    player = StrategyPtr(new MonteCarlo(intuition));
   }
   else {
     SessionOptions session_options;
@@ -47,8 +47,9 @@ Strategy* makePlayer(const char* arg) {
        std::cerr << "Failed: " << status;
        exit(1);
     }
-    player = new DnnMonteCarlo(gModel);
-    gAnnotator = new DnnMonteCarloAnnotator(gModel);
+    StrategyPtr intuition = StrategyPtr(new DnnModelIntuition(gModel));
+    AnnotatorPtr annotator(new DnnMonteCarloAnnotator(gModel));
+    player = StrategyPtr(new MonteCarlo(intuition, annotator));
   }
   return player;
 }
@@ -114,22 +115,22 @@ void parseArgs(int argc, char** argv) {
     gDeal = Deal::RandomDealIndex();
   }
 
-  if (gOpponent == 0) {
+  if (!gOpponent) {
     const char* def = "simple";
     printf("Setting opponent to %s\n", def);
     gOpponent = makePlayer(def);
   }
-  if (gChampion == 0) {
+  if (!gChampion) {
     const char* def = "savedmodel";
     printf("Setting champion to %s\n", def);
     gChampion = makePlayer(def);
   }
 }
 
-typedef Strategy* Player;
-typedef const Strategy* Table[4];
+typedef StrategyPtr Player;
+typedef StrategyPtr Table[4];
 
-void runGame(const Strategy** players) {
+void runGame(StrategyPtr players[4]) {
   std::string asHex = asHexString(gDeal);
   printf("%s\n", asHex.c_str());
   Deal deck(gDeal);
@@ -138,7 +139,7 @@ void runGame(const Strategy** players) {
   GameState state(deck);
   bool shotTheMoon;
   float finalScores[4] = {0, 0, 0, 0};
-  state.PlayGame(players, finalScores, shotTheMoon, gAnnotator);
+  state.PlayGame(players, finalScores, shotTheMoon);
 
   if (shotTheMoon) {
     printf("Shot the moon!\n");
@@ -150,7 +151,7 @@ int main(int argc, char** argv)
 {
   parseArgs(argc, argv);
 
-  const Strategy* players[] = { gChampion, gOpponent, gOpponent, gOpponent };
+  StrategyPtr players[] = { gChampion, gOpponent, gOpponent, gOpponent };
   runGame(players);
 
   return 0;

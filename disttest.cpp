@@ -3,7 +3,7 @@
 #include "lib/math.h"
 #include "lib/PossibilityAnalyzer.h"
 #include "lib/RandomStrategy.h"
-#include "lib/SimpleMonteCarlo.h"
+#include "lib/MonteCarlo.h"
 
 #include <iostream>
 #include <fstream>
@@ -18,7 +18,8 @@ static std::string debugFileName(int playNumber) {
 
 int run()
 {
-  const Strategy* monte = new SimpleMonteCarlo();
+  StrategyPtr intuition(new RandomStrategy());
+  StrategyPtr monte(new MonteCarlo(intuition));
 
   GameState state;
   PossibilityAnalyzer* analyzer = 0;
@@ -43,8 +44,6 @@ int run()
     Card card = monte->choosePlay(knowableState);
     state.PlayCard(card);
   }
-
-  delete monte;
 
   Distribution analyzedDistribution;
   {
@@ -73,7 +72,7 @@ int run()
     // float prob[52][4];
     // distribution.AsProbabilities(prob);
     // Distribution::PrintProbabilities(prob);
-    
+
     return 0;
   }
   else

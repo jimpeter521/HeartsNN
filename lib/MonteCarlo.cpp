@@ -3,9 +3,9 @@
 #include "lib/KnowableState.h"
 #include "lib/random.h"
 #include "lib/RandomStrategy.h"
-#include "lib/SimpleMonteCarlo.h"
+#include "lib/MonteCarlo.h"
 #include "lib/PossibilityAnalyzer.h"
-#include "lib/WriteDataAnnotator.h"
+#include "lib/timer.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -14,18 +14,14 @@
 
 static RandomGenerator rng;
 
-SimpleMonteCarlo::~SimpleMonteCarlo() {
-  delete mWriteDataAnnotator;
+MonteCarlo::~MonteCarlo() {
 }
 
-SimpleMonteCarlo::SimpleMonteCarlo(bool writeData, bool validateMode)
-: Strategy()
-, mHash()
-, mRolloutStrategy(new RandomStrategy())
-, mWriteDataAnnotator(0)
+MonteCarlo::MonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotator, uint64_t maxAlternates)
+: Strategy(annotator)
+, mIntuition(intuition)
+, kMaxAlternates(maxAlternates)
 {
-  if (writeData)
-    mWriteDataAnnotator = new WriteDataAnnotator(asHexString(rng.random128(), 32), validateMode);
 }
 
 static bool floatEqual(float a, float b) {
@@ -45,7 +41,7 @@ static void updateMoonStats(unsigned currentPlayer, int iChoice, float finalScor
 // For each legal play, play out (roll out) the game many times
 // Compute the expected score of a play as the average score all game rollouts.
 
-Card SimpleMonteCarlo::choosePlay(const KnowableState& knowableState, Annotator* annotator) const
+Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
 {
   // knowableState.VerifyHeartsState();
 
@@ -63,15 +59,18 @@ Card SimpleMonteCarlo::choosePlay(const KnowableState& knowableState, Annotator*
 
   PossibilityAnalyzer* analyzer = knowableState.Analyze();
   const uint128_t numPossibilities = analyzer->Possibilities();
-  const unsigned kRepetitions = 20;
-  const uint128_t kMaxAlternates = 300;
-  const bool exhaustive = numPossibilities < kMaxAlternates;
-  const unsigned numAlternates = exhaustive ? numPossibilities : kMaxAlternates;
+
+  // const uint64_t estimatedworkunits =  choices.Size() * (48 - knowableState.PlayNumber());
+  double start = now();
+
+  const uint64_t kMinAlternates = 5;
+  const double kBudget = 0.333; // For now, a hard-coded budget of a third of a second.
 
   // For each possible alternate arrangement of opponent's unplayed cards
-  for (unsigned alternate=0; alternate<numAlternates; ++alternate)
+  unsigned alternate;
+  for (alternate=0; alternate<kMaxAlternates; ++alternate)
   {
-    const uint128_t possibilityIndex = exhaustive ? alternate : rng.range128(numPossibilities);
+    const uint128_t possibilityIndex = rng.range128(numPossibilities);
 
     CardHands hands;
     knowableState.PrepareHands(hands);
@@ -82,36 +81,43 @@ Card SimpleMonteCarlo::choosePlay(const KnowableState& knowableState, Annotator*
     // Construct the game state for this alternate
     const GameState alt(hands, knowableState);
 
-    for (unsigned rep=0; rep<kRepetitions; ++rep) {
-      CardArray::iterator it(choices);
+    CardArray::iterator it(choices);
 
-      // For each possible play
-      for (unsigned i=0; i<choices.Size(); ++i)
-      {
-        Card nextCardPlayed = it.next();
+    // For each possible play
+    for (unsigned i=0; i<choices.Size(); ++i)
+    {
+      Card nextCardPlayed = it.next();
 
-        // Construct the next game state
-        GameState next(alt);
-        next.TrackTrickWinner(trickWins + i);
-        next.PlayCard(nextCardPlayed);
+      // Construct the next game state
+      GameState next(alt);
+      next.TrackTrickWinner(trickWins + i);
+      next.PlayCard(nextCardPlayed);
 
-        float finalScores[4];
+      float finalScores[4];
 
-        // Do one "roll out", i.e. play out the game to the end, using random plays
-        bool shotTheMoon;
-        next.PlayOutGameMonteCarlo(finalScores, shotTheMoon, mRolloutStrategy);
+      // Do one "roll out", i.e. play out the game to the end, using random plays
+      bool shotTheMoon;
+      next.PlayOutGameMonteCarlo(finalScores, shotTheMoon, mIntuition);
 
-        next.TrackTrickWinner(0);
-        if (shotTheMoon)
-          updateMoonStats(currentPlayer, i, finalScores, moonCounts);
+      next.TrackTrickWinner(0);
+      if (shotTheMoon)
+        updateMoonStats(currentPlayer, i, finalScores, moonCounts);
 
-        for (int j=0; j<4; j++)
-          scores[i][j] += finalScores[j];
-      }
+      for (int j=0; j<4; j++)
+        scores[i][j] += finalScores[j];
+    }
+
+    if (alternate>=kMinAlternates && delta(start) > kBudget) {
+      // printf("Play %u, choices %u, stopped at %3.2f\n", knowableState.PlayNumber(), choices.Size(), 100.0*float(alternate)/kMaxAlternates);
+      break;
     }
   }
 
-  const unsigned totalAlternates = numAlternates*kRepetitions;
+  // if (alternate == kMaxAlternates) {
+  //   printf("Not stopped: Play %u, choices %u\n", knowableState.PlayNumber(), choices.Size());
+  // }
+
+  const unsigned totalAlternates = alternate;
   const float kScale = 1.0 / totalAlternates;
   float moonProb[13][3];
   float winsTrickProb[13];
@@ -138,8 +144,9 @@ Card SimpleMonteCarlo::choosePlay(const KnowableState& knowableState, Annotator*
 
   Card bestPlay = choices.NthCard(bestChoice);
 
-  if (mWriteDataAnnotator)
-    mWriteDataAnnotator->OnWriteData(knowableState, analyzer, expectedScore, moonProb, winsTrickProb);
+  const AnnotatorPtr annotator = getAnnotator();
+  if (annotator)
+    annotator->OnWriteData(knowableState, analyzer, expectedScore, moonProb, winsTrickProb);
 
   delete analyzer;
   return bestPlay;

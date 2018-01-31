@@ -13,7 +13,7 @@ RandomStrategy::~RandomStrategy() {}
 
 RandomStrategy::RandomStrategy() {}
 
-Card RandomStrategy::choosePlay(const KnowableState& knowableState, Annotator* annotator) const
+Card RandomStrategy::choosePlay(const KnowableState& knowableState) const
 {
   CardHand choices = knowableState.LegalPlays();
   return choices.aCardAtRandom(rng);

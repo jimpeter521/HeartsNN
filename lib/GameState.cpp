@@ -85,24 +85,25 @@ void GameState::VerifyGameState() const
 #endif
 }
 
-void GameState::PlayGame(const Strategy** players, float finalScores[4], bool& shotTheMoon, Annotator* annotator)
+void GameState::PlayGame(StrategyPtr players[4], float finalScores[4], bool& shotTheMoon)
 {
   // We allow calling this method from a GameState in the middle of the game.
   // so we intentionally do not set mNextPlay=0 for first iteration of loop here.
   while (!Done())
   {
     int i = CurrentPlayer();
+    StrategyPtr player = players[i];
+    AnnotatorPtr annotator = player->getAnnotator();
     if (annotator) {
       annotator->OnGameStateBeforePlay(*this);
     }
-    NextPlay(players[i], annotator);
+    NextPlay(player);
   }
   CheckForShootTheMoon(finalScores, shotTheMoon);
 }
 
-void GameState::PlayOutGameMonteCarlo(float finalScores[4], bool& shotTheMoon, const Strategy* opponent)
+void GameState::PlayOutGameMonteCarlo(float finalScores[4], bool& shotTheMoon, const StrategyPtr& opponent)
 {
-  assert(opponent != 0);
   while (!Done())
   {
     NextPlay(opponent);
@@ -180,7 +181,7 @@ void GameState::PlayCard(Card card)
   AdvancePlayNumber();
 }
 
-Card GameState::NextPlay(const Strategy* currentPlayersStrategy, Annotator* annotator)
+Card GameState::NextPlay(const StrategyPtr& currentPlayersStrategy)
 {
   Card card;
   const CardHand choices = LegalPlays();
@@ -189,7 +190,7 @@ Card GameState::NextPlay(const Strategy* currentPlayersStrategy, Annotator* anno
   }
   else {
     KnowableState knowableState(*this);
-    card = currentPlayersStrategy->choosePlay(knowableState, annotator);
+    card = currentPlayersStrategy->choosePlay(knowableState);
     assert(choices.HasCard(card));
   }
   PlayCard(card);

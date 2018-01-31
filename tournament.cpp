@@ -1,7 +1,6 @@
 #include "lib/RandomStrategy.h"
-#include "lib/SimpleMonteCarlo.h"
-#include "lib/DnnModelStrategy.h"
-#include "lib/DnnMonteCarlo.h"
+#include "lib/MonteCarlo.h"
+#include "lib/DnnModelIntuition.h"
 #include "lib/GameState.h"
 
 #include "lib/random.h"
@@ -29,31 +28,34 @@ void loadModel(const char* path) {
 
 int gNumMatches = 0;
 uint128_t* gDeals = 0;
-Strategy* gOpponent = 0;
-Strategy* gChampion = 0;
+StrategyPtr gOpponent;
+StrategyPtr gChampion;
 const char* gModelPath = "./savedmodel";
 
 bool gSaveMoonDeals = true;
 
-Strategy* makePlayer(const char* arg) {
-  Strategy* player = 0;
+StrategyPtr makePlayer(const char* arg) {
+  StrategyPtr player;
   if (arg == 0 || std::string(arg) == std::string("random")) {
-    player = new RandomStrategy();
+    player = StrategyPtr(new RandomStrategy());
   }
   else if (std::string(arg) == std::string("simple")) {
-    player = new SimpleMonteCarlo();
+    StrategyPtr intuition(new RandomStrategy());
+    player = StrategyPtr(new MonteCarlo(intuition));
   }
   else if (std::string(arg) == std::string("intuition")) {
     loadModel(gModelPath);
-   player = new DnnModelStrategy(gModel);
+    player = StrategyPtr(new DnnModelIntuition(gModel));
   }
   else if (std::string(arg) == std::string("dnnmonte")) {
-     loadModel(gModelPath);
-    player = new DnnMonteCarlo(gModel);
+    loadModel(gModelPath);
+    StrategyPtr intuition(new DnnModelIntuition(gModel));
+    player = StrategyPtr(new MonteCarlo(intuition));
   }
   else {
     loadModel(arg);
-    player = new DnnMonteCarlo(gModel);
+    StrategyPtr intuition(new DnnModelIntuition(gModel));
+    player = StrategyPtr(new MonteCarlo(intuition));
   }
   return player;
 }
@@ -168,21 +170,20 @@ void parseArgs(int argc, char** argv) {
     randomDeals(1);
   }
 
-  if (gOpponent == 0) {
+  if (!gOpponent) {
     const char* def = "random";
     printf("Setting opponent to %s\n", def);
     gOpponent = makePlayer(def);
   }
-  if (gChampion == 0) {
+  if (!gChampion) {
     const char* def = "simple";
     printf("Setting champion to %s\n", def);
     gChampion = makePlayer(def);
   }
 }
 
-typedef Strategy* Player;
-typedef const Strategy* Table[4];
-typedef Table Match[];
+typedef StrategyPtr Player;
+typedef StrategyPtr Table[4];
 
 // This Scores struct is useful for analyzing the results of one match.
 // It accumulates both total scores for each player strategy, but also
@@ -199,9 +200,9 @@ struct Scores {
     std::fill(&mCross[0][0], &mCross[2][0], 0.0);
   }
 
-  void Accumulate(const Strategy** players, const float scores[4]) {
+  void Accumulate(StrategyPtr players[4], const float scores[4]) {
     for (int j=0; j<4; ++j) {
-      const Strategy* player = players[j];
+      StrategyPtr player = players[j];
       assert(player==gChampion || player==gOpponent);
       int playerIndex = player == gChampion ? 0 : 1;
       mPlayer[playerIndex] += scores[j];
@@ -227,7 +228,7 @@ struct Scores {
   }
 };
 
-void runOneGame(uint128_t dealIndex, const Strategy** players, Scores& scores, bool& moon) {
+void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, bool& moon) {
   Deal deck(dealIndex);
   GameState state(deck);
   float finalScores[4] = {0, 0, 0, 0};
@@ -238,7 +239,7 @@ void runOneGame(uint128_t dealIndex, const Strategy** players, Scores& scores, b
   scores.Accumulate(players, finalScores);
 
   for (int i=0; i<4; ++i) {
-    const Strategy* player = players[i];
+    StrategyPtr player = players[i];
     assert(player==gChampion || player==gOpponent);
     int playerIndex = player == gChampion ? 0 : 1;
     printf("%s=%5.1f ", name[playerIndex], finalScores[i]);
