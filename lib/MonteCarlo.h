@@ -10,11 +10,11 @@ class MonteCarlo : public Strategy
 public:
   virtual ~MonteCarlo();
 
-  MonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotator=0, uint128_t maxAlternates=1000);
+  MonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotator=0, uint64_t maxAlternates=200);
 
   virtual Card choosePlay(const KnowableState& state) const;
 
 private:
   StrategyPtr mIntuition;
-  const uint128_t kMaxAlternates;
+  const uint64_t kMaxAlternates;
 };

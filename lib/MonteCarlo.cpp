@@ -5,6 +5,7 @@
 #include "lib/RandomStrategy.h"
 #include "lib/MonteCarlo.h"
 #include "lib/PossibilityAnalyzer.h"
+#include "lib/timer.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -16,7 +17,7 @@ static RandomGenerator rng;
 MonteCarlo::~MonteCarlo() {
 }
 
-MonteCarlo::MonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotator, uint128_t maxAlternates)
+MonteCarlo::MonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotator, uint64_t maxAlternates)
 : Strategy(annotator)
 , mIntuition(intuition)
 , kMaxAlternates(maxAlternates)
@@ -58,13 +59,18 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
 
   PossibilityAnalyzer* analyzer = knowableState.Analyze();
   const uint128_t numPossibilities = analyzer->Possibilities();
-  const bool exhaustive = numPossibilities < kMaxAlternates;
-  const unsigned numAlternates = exhaustive ? numPossibilities : kMaxAlternates;
+
+  // const uint64_t estimatedworkunits =  choices.Size() * (48 - knowableState.PlayNumber());
+  double start = now();
+
+  const uint64_t kMinAlternates = 5;
+  const double kBudget = 0.333; // For now, a hard-coded budget of a third of a second.
 
   // For each possible alternate arrangement of opponent's unplayed cards
-  for (unsigned alternate=0; alternate<numAlternates; ++alternate)
+  unsigned alternate;
+  for (alternate=0; alternate<kMaxAlternates; ++alternate)
   {
-    const uint128_t possibilityIndex = exhaustive ? alternate : rng.range128(numPossibilities);
+    const uint128_t possibilityIndex = rng.range128(numPossibilities);
 
     CardHands hands;
     knowableState.PrepareHands(hands);
@@ -100,9 +106,18 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
       for (int j=0; j<4; j++)
         scores[i][j] += finalScores[j];
     }
+
+    if (alternate>=kMinAlternates && delta(start) > kBudget) {
+      // printf("Play %u, choices %u, stopped at %3.2f\n", knowableState.PlayNumber(), choices.Size(), 100.0*float(alternate)/kMaxAlternates);
+      break;
+    }
   }
 
-  const unsigned totalAlternates = numAlternates;
+  // if (alternate == kMaxAlternates) {
+  //   printf("Not stopped: Play %u, choices %u\n", knowableState.PlayNumber(), choices.Size());
+  // }
+
+  const unsigned totalAlternates = alternate;
   const float kScale = 1.0 / totalAlternates;
   float moonProb[13][3];
   float winsTrickProb[13];
