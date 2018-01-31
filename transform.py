@@ -381,34 +381,37 @@ def toNumpy(state):
 
     return (input, expectedScores, winTrickProbs, moonProbs)
 
-
-def parseFile(inFilePath, group):
-    with open(inFilePath, 'r') as inFile:
-        while True:
-            try:
-                state = parseOneState(inFile)
-                oneMain, oneScores, oneWinTrickProbs, oneMoonProbs = toNumpy(state)
-
-                group['main'].append(oneMain)
-                group['scores'].append(oneScores)
-                group['winTrick'].append(oneWinTrickProbs)
-                group['moonProb'].append(oneMoonProbs)
-
-            except (EOFError, StopIteration):
-                break
-
-
-def transformOneFile(inFilePath):
-    assert os.path.isfile(inFilePath)
-    outDirPath = inFilePath + '.d'
-
+def parseStream(stream):
     group = {
         'main': [],
         'scores': [],
         'winTrick': [],
         'moonProb': [],
     }
-    parseFile(inFilePath, group)
+    while True:
+        try:
+            state = parseOneState(stream)
+            oneMain, oneScores, oneWinTrickProbs, oneMoonProbs = toNumpy(state)
+
+            group['main'].append(oneMain)
+            group['scores'].append(oneScores)
+            group['winTrick'].append(oneWinTrickProbs)
+            group['moonProb'].append(oneMoonProbs)
+
+        except (EOFError, StopIteration):
+            break
+    return group
+
+def parseFile(inFilePath):
+    with open(inFilePath, 'r') as inFile:
+        group = parseStream(inFile)
+    return group
+
+def transformOneFile(inFilePath):
+    assert os.path.isfile(inFilePath)
+    outDirPath = inFilePath + '.d'
+
+    group = parseFile(inFilePath)
     memmap.save_group(group, outDirPath)
 
 

@@ -51,7 +51,7 @@ void DnnMonteCarloAnnotator::On_DnnMonteCarlo_choosePlay(const KnowableState& st
   Distribution::PrintProbabilities(prob, stdout);
 
   float predictedExpectedScore[13];
-  state.Predict(mModel, predictedExpectedScore);
+  state.TransformAndPredict(mModel, predictedExpectedScore);
 
   CardArray::iterator it(choices);
   for (unsigned i=0; i<choices.Size(); ++i) {

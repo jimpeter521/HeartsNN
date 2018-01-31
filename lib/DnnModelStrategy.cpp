@@ -26,6 +26,6 @@ DnnModelStrategy::DnnModelStrategy(const tensorflow::SavedModelBundle& model)
 Card DnnModelStrategy::choosePlay(const KnowableState& state, Annotator* annotator) const
 {
   float playExpectedValue[13];
-  Card bestCard = state.Predict(mModel, playExpectedValue);
+  Card bestCard = state.TransformAndPredict(mModel, playExpectedValue);
   return bestCard;
 }

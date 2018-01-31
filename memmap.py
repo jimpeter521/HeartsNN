@@ -23,8 +23,7 @@ def save_to_memmap(data, path, p=None):
     np.copyto(fp, data)
     del fp
 
-def save_group(group, datasetDir):
-
+def as_numpy(group):
     mainData = group['main']
     scoresData = group['scores']
     winTrickProbs = group['winTrick']
@@ -40,11 +39,18 @@ def save_group(group, datasetDir):
     winTrickProbs = np.asarray(winTrickProbs, dtype=np.float32)
     moonProbData = np.asarray(moonProbData, dtype=np.float32)
 
+    return mainData, scoresData, winTrickProbs, moonProbData
+
+def save_group(group, datasetDir):
+
+    mainData, scoresData, winTrickProbs, moonProbData = as_numpy(group)
+
     os.makedirs(datasetDir, exist_ok=True)
 
     # Apply the same permutation to every array in the group.
     # We shuffle data here to ensure that the files
     # in the dataset always use the same order.
+    nsamples = len(mainData)
     p = np.random.permutation(nsamples)
 
     save_to_memmap(mainData, f'{datasetDir}/main_data.np.mmap', p)

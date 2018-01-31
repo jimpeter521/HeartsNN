@@ -82,6 +82,15 @@ cxx_binary(
   deps = ['//:tf', '//:lib', '//:libtensorflow_cc', '//:libtensorflow_framework'],
 )
 
+cxx_binary(
+  name = 'validate',
+  srcs = [
+    'validate.cpp',
+  ],
+  compiler_flags = ['-I.'],
+  deps = ['//:tf', '//:lib', '//:libtensorflow_cc', '//:libtensorflow_framework'],
+)
+
 cxx_test(
     name = "tests",
     srcs = glob(["tests/*.cpp"]),

@@ -10,19 +10,38 @@
 
 WriteDataAnnotator::~WriteDataAnnotator()
 {
-  for (int i=1; i<48; i++) {
-    fclose(mFiles[i]);
+  if (!mValidateMode) {
+    for (int i=1; i<48; i++) {
+      fclose(mFiles[i]);
+    }
   }
 }
 
-WriteDataAnnotator::WriteDataAnnotator(const std::string& hash)
+WriteDataAnnotator::WriteDataAnnotator(const std::string& hash, bool validateMode)
 : mHash(hash)
+, mValidateMode(validateMode)
 {
-  mkdir("data", 0755);
-  for (int i=1; i<48; i++) {
-    char path[128];
-    sprintf(path, "data/%s-%02d", mHash.c_str(), i);
-    mFiles[i] = fopen(path, "w");
+  if (mValidateMode)
+  {
+    // Just write to stdout
+    for (int i=1; i<48; i++) {
+      mFiles[i] = stdout;
+    }
+  }
+  else
+  {
+    const char* dataDirPath = "data";
+    int err = mkdir(dataDirPath, 0777);
+    if (err != 0 && errno != EEXIST) {
+      const char* errmsg = strerror(errno);
+      fprintf(stderr, "mkdir %s failed: %s\n", dataDirPath, errmsg);
+      assert(err != 0);
+    }
+    for (int i=1; i<48; i++) {
+      char path[128];
+      sprintf(path, "%s/%s-%02d", dataDirPath, mHash.c_str(), i);
+      mFiles[i] = fopen(path, "w");
+    }
   }
 }
 

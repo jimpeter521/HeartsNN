@@ -290,3 +290,40 @@ void HeartsState::TrackTrickWinner(unsigned* trickWins)
     mTrackTrickWinsAtPlay = (mNextPlay | 3);
   }
 }
+
+Card HeartsState::HighCardOnTable() const
+{
+  if (PlayInTrick() == 0) {
+    assert(false);
+    return -1;
+  }
+
+  Rank highRank = RankOf(mPlays[0]);
+  for (int i=1; i<PlayInTrick(); ++i) {
+    Card card = mPlays[i];
+    if (SuitOf(card)==mTrickSuit && highRank<RankOf(card)) {
+      highRank = RankOf(card);
+    }
+  }
+
+  return CardFor(highRank, mTrickSuit);
+}
+
+
+bool HeartsState::MightCardTakeTrick(Card card) const
+{
+  if (PlayInTrick() == 0) {
+    // A card leading a trick typically can take the trick.
+    // If there are no unplayed cards in the suit, it's even guaranteed to take the trick.
+    // But if the card is less than all unplayed cards, then it can't take the trick.
+    const CardDeck unplayedInSuit = UnplayedCardsNotInHand(CurrentPlayersHand()).CardsWithSuit(SuitOf(card));
+    return unplayedInSuit.Size()==0 || card > unplayedInSuit.FirstCard();
+  }
+  else if (SuitOf(card) != mTrickSuit) {
+    return false;
+  }
+  else {
+    Card highCard = HighCardOnTable();
+    return RankOf(card) > RankOf(highCard);
+  }
+}
