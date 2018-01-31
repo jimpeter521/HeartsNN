@@ -1,9 +1,9 @@
-// lib/DnnModelStrategy.cpp
+// lib/DnnModelIntuition.cpp
 
 #include "lib/Card.h"
 #include "lib/KnowableState.h"
 #include "lib/random.h"
-#include "lib/DnnModelStrategy.h"
+#include "lib/DnnModelIntuition.h"
 #include "lib/PossibilityAnalyzer.h"
 #include "lib/timer.h"
 
@@ -16,14 +16,14 @@
 using namespace std;
 using namespace tensorflow;
 
-DnnModelStrategy::~DnnModelStrategy() {}
+DnnModelIntuition::~DnnModelIntuition() {}
 
-DnnModelStrategy::DnnModelStrategy(const tensorflow::SavedModelBundle& model)
+DnnModelIntuition::DnnModelIntuition(const tensorflow::SavedModelBundle& model)
 : mModel(model)
 {
 }
 
-Card DnnModelStrategy::choosePlay(const KnowableState& state) const
+Card DnnModelIntuition::choosePlay(const KnowableState& state) const
 {
   float playExpectedValue[13];
   Card bestCard = state.TransformAndPredict(mModel, playExpectedValue);

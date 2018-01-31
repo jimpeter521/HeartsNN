@@ -3,11 +3,11 @@
 #include <unistd.h>
 
 #include "lib/RandomStrategy.h"
-#include "lib/SimpleMonteCarlo.h"
-#include "lib/DnnModelStrategy.h"
-#include "lib/DnnMonteCarlo.h"
+#include "lib/MonteCarlo.h"
+#include "lib/DnnModelIntuition.h"
 #include "lib/GameState.h"
 #include "lib/Deal.h"
+#include "lib/WriteDataAnnotator.h"
 
 #include "lib/random.h"
 #include "lib/math.h"
@@ -29,8 +29,8 @@ void loadModel(const char* modelDirPath) {
   }
 }
 
-void run(uint128_t dealIndex, const Strategy* player, const Strategy* opponent) {
-  const Strategy* players[4];
+void run(uint128_t dealIndex, StrategyPtr player, StrategyPtr opponent) {
+  StrategyPtr players[4];
 
   for (int i=0; i<4; i++)
   {
@@ -58,21 +58,22 @@ int main(int argc, char** argv)
   }
   const uint128_t dealIndex = parseHex128(argv[1]);
 
-  const Strategy* player = 0;
-  const Strategy* opponent = 0;
+  AnnotatorPtr annotator(new WriteDataAnnotator(true));
+
+  StrategyPtr player;
+  StrategyPtr opponent;
   if (argc > 2) {
     loadModel(argv[2]);
-    opponent = new SimpleMonteCarlo(false);
-    player = new DnnMonteCarlo(gModel, true);
+    StrategyPtr intuition(new DnnModelIntuition(gModel));
+    opponent = intuition;
+    player = StrategyPtr(new MonteCarlo(intuition, annotator));
   } else {
-    opponent = new RandomStrategy();
-    player = new SimpleMonteCarlo(true, true);
+    StrategyPtr intuition(new RandomStrategy());
+    opponent = intuition;
+    player = StrategyPtr(new MonteCarlo(intuition, annotator));
   }
 
   run(dealIndex, player, opponent);
-
-  delete player;
-  delete opponent;
 
   return 0;
 }

@@ -5,12 +5,12 @@
 
 class KnowableState;
 
-class SimpleMonteCarlo : public Strategy
+class MonteCarlo : public Strategy
 {
 public:
-  virtual ~SimpleMonteCarlo();
+  virtual ~MonteCarlo();
 
-  SimpleMonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotator=0, uint128_t maxAlternates=1000);
+  MonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotator=0, uint128_t maxAlternates=1000);
 
   virtual Card choosePlay(const KnowableState& state) const;
 

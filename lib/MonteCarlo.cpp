@@ -3,7 +3,7 @@
 #include "lib/KnowableState.h"
 #include "lib/random.h"
 #include "lib/RandomStrategy.h"
-#include "lib/SimpleMonteCarlo.h"
+#include "lib/MonteCarlo.h"
 #include "lib/PossibilityAnalyzer.h"
 
 #include <math.h>
@@ -13,10 +13,10 @@
 
 static RandomGenerator rng;
 
-SimpleMonteCarlo::~SimpleMonteCarlo() {
+MonteCarlo::~MonteCarlo() {
 }
 
-SimpleMonteCarlo::SimpleMonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotator, uint128_t maxAlternates)
+MonteCarlo::MonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotator, uint128_t maxAlternates)
 : Strategy(annotator)
 , mIntuition(intuition)
 , kMaxAlternates(maxAlternates)
@@ -40,7 +40,7 @@ static void updateMoonStats(unsigned currentPlayer, int iChoice, float finalScor
 // For each legal play, play out (roll out) the game many times
 // Compute the expected score of a play as the average score all game rollouts.
 
-Card SimpleMonteCarlo::choosePlay(const KnowableState& knowableState) const
+Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
 {
   // knowableState.VerifyHeartsState();
 

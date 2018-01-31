@@ -9,12 +9,12 @@ namespace tensorflow {
   struct SavedModelBundle;
 };
 
-class DnnModelStrategy : public Strategy
+class DnnModelIntuition : public Strategy
 {
 public:
-  virtual ~DnnModelStrategy();
+  virtual ~DnnModelIntuition();
 
-  DnnModelStrategy(const tensorflow::SavedModelBundle& model);
+  DnnModelIntuition(const tensorflow::SavedModelBundle& model);
 
   virtual Card choosePlay(const KnowableState& state) const;
 

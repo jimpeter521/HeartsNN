@@ -1,6 +1,6 @@
 #include "lib/RandomStrategy.h"
-#include "lib/SimpleMonteCarlo.h"
-#include "lib/DnnModelStrategy.h"
+#include "lib/MonteCarlo.h"
+#include "lib/DnnModelIntuition.h"
 #include "lib/GameState.h"
 #include "lib/WriteDataAnnotator.h"
 
@@ -38,7 +38,7 @@ void loadModel() {
 StrategyPtr getIntuition() {
   if (gModelPath) {
     loadModel();
-    return StrategyPtr(new DnnModelStrategy(gModel));
+    return StrategyPtr(new DnnModelIntuition(gModel));
   } else {
     return StrategyPtr(new RandomStrategy());
   }
@@ -52,7 +52,7 @@ void run(int iterations) {
   StrategyPtr intuition = getIntuition();
 
   // The `player` uses monte carlo and will generate data
-  StrategyPtr player(new SimpleMonteCarlo(intuition, annotator, gModelPath!=0 ? 50 : 2000));
+  StrategyPtr player(new MonteCarlo(intuition, annotator, gModelPath!=0 ? 50 : 2000));
 
   // Each of the three opponents will use intuition only and not write data.
   StrategyPtr opponent(intuition);
