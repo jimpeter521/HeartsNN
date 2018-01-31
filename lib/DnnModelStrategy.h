@@ -16,7 +16,7 @@ public:
 
   DnnModelStrategy(const tensorflow::SavedModelBundle& model);
 
-  virtual Card choosePlay(const KnowableState& state, Annotator* annotator) const;
+  virtual Card choosePlay(const KnowableState& state) const;
 
 private:
   const tensorflow::SavedModelBundle& mModel;

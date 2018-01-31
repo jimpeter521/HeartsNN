@@ -5,7 +5,6 @@
 #include "lib/RandomStrategy.h"
 #include "lib/SimpleMonteCarlo.h"
 #include "lib/PossibilityAnalyzer.h"
-#include "lib/WriteDataAnnotator.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -15,17 +14,13 @@
 static RandomGenerator rng;
 
 SimpleMonteCarlo::~SimpleMonteCarlo() {
-  delete mWriteDataAnnotator;
 }
 
-SimpleMonteCarlo::SimpleMonteCarlo(bool writeData, bool validateMode)
-: Strategy()
-, mHash()
-, mRolloutStrategy(new RandomStrategy())
-, mWriteDataAnnotator(0)
+SimpleMonteCarlo::SimpleMonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotator, uint128_t maxAlternates)
+: Strategy(annotator)
+, mIntuition(intuition)
+, kMaxAlternates(maxAlternates)
 {
-  if (writeData)
-    mWriteDataAnnotator = new WriteDataAnnotator(asHexString(rng.random128(), 32), validateMode);
 }
 
 static bool floatEqual(float a, float b) {
@@ -45,7 +40,7 @@ static void updateMoonStats(unsigned currentPlayer, int iChoice, float finalScor
 // For each legal play, play out (roll out) the game many times
 // Compute the expected score of a play as the average score all game rollouts.
 
-Card SimpleMonteCarlo::choosePlay(const KnowableState& knowableState, Annotator* annotator) const
+Card SimpleMonteCarlo::choosePlay(const KnowableState& knowableState) const
 {
   // knowableState.VerifyHeartsState();
 
@@ -63,8 +58,6 @@ Card SimpleMonteCarlo::choosePlay(const KnowableState& knowableState, Annotator*
 
   PossibilityAnalyzer* analyzer = knowableState.Analyze();
   const uint128_t numPossibilities = analyzer->Possibilities();
-  const unsigned kRepetitions = 20;
-  const uint128_t kMaxAlternates = 300;
   const bool exhaustive = numPossibilities < kMaxAlternates;
   const unsigned numAlternates = exhaustive ? numPossibilities : kMaxAlternates;
 
@@ -82,36 +75,34 @@ Card SimpleMonteCarlo::choosePlay(const KnowableState& knowableState, Annotator*
     // Construct the game state for this alternate
     const GameState alt(hands, knowableState);
 
-    for (unsigned rep=0; rep<kRepetitions; ++rep) {
-      CardArray::iterator it(choices);
+    CardArray::iterator it(choices);
 
-      // For each possible play
-      for (unsigned i=0; i<choices.Size(); ++i)
-      {
-        Card nextCardPlayed = it.next();
+    // For each possible play
+    for (unsigned i=0; i<choices.Size(); ++i)
+    {
+      Card nextCardPlayed = it.next();
 
-        // Construct the next game state
-        GameState next(alt);
-        next.TrackTrickWinner(trickWins + i);
-        next.PlayCard(nextCardPlayed);
+      // Construct the next game state
+      GameState next(alt);
+      next.TrackTrickWinner(trickWins + i);
+      next.PlayCard(nextCardPlayed);
 
-        float finalScores[4];
+      float finalScores[4];
 
-        // Do one "roll out", i.e. play out the game to the end, using random plays
-        bool shotTheMoon;
-        next.PlayOutGameMonteCarlo(finalScores, shotTheMoon, mRolloutStrategy);
+      // Do one "roll out", i.e. play out the game to the end, using random plays
+      bool shotTheMoon;
+      next.PlayOutGameMonteCarlo(finalScores, shotTheMoon, mIntuition);
 
-        next.TrackTrickWinner(0);
-        if (shotTheMoon)
-          updateMoonStats(currentPlayer, i, finalScores, moonCounts);
+      next.TrackTrickWinner(0);
+      if (shotTheMoon)
+        updateMoonStats(currentPlayer, i, finalScores, moonCounts);
 
-        for (int j=0; j<4; j++)
-          scores[i][j] += finalScores[j];
-      }
+      for (int j=0; j<4; j++)
+        scores[i][j] += finalScores[j];
     }
   }
 
-  const unsigned totalAlternates = numAlternates*kRepetitions;
+  const unsigned totalAlternates = numAlternates;
   const float kScale = 1.0 / totalAlternates;
   float moonProb[13][3];
   float winsTrickProb[13];
@@ -138,8 +129,9 @@ Card SimpleMonteCarlo::choosePlay(const KnowableState& knowableState, Annotator*
 
   Card bestPlay = choices.NthCard(bestChoice);
 
-  if (mWriteDataAnnotator)
-    mWriteDataAnnotator->OnWriteData(knowableState, analyzer, expectedScore, moonProb, winsTrickProb);
+  const AnnotatorPtr annotator = getAnnotator();
+  if (annotator)
+    annotator->OnWriteData(knowableState, analyzer, expectedScore, moonProb, winsTrickProb);
 
   delete analyzer;
   return bestPlay;

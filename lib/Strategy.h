@@ -2,15 +2,25 @@
 
 #include "lib/Card.h"
 #include "lib/CardArray.h"
+#include "lib/Annotator.h"
 
-class Annotator;
+#include <memory>
+
 class KnowableState;
+class Strategy;
+
+typedef std::shared_ptr<Strategy> StrategyPtr;
 
 class Strategy
 {
 public:
   virtual ~Strategy();
-  Strategy();
+  Strategy(const AnnotatorPtr& annotator=0);
 
-  virtual Card choosePlay(const KnowableState& state, Annotator* annotator = 0) const = 0;
+  virtual Card choosePlay(const KnowableState& state) const = 0;
+
+  AnnotatorPtr getAnnotator() const { return mAnnotator; }
+
+private:
+  const AnnotatorPtr mAnnotator;
 };

@@ -17,7 +17,7 @@ public:
 
   GameState(const CardHands& hands, const KnowableState& knowableState);
 
-  void PlayGame(const Strategy** players, float finalScores[4], bool& shotTheMoon, Annotator* annotator = 0);
+  void PlayGame(StrategyPtr players[4], float finalScores[4], bool& shotTheMoon);
     // Return the final outcome with mean zero scores.
     // If the playerWithQueen is not NULL, return in it the number of the player who got the queen in this game.
 
@@ -26,7 +26,7 @@ public:
   void PlayCard(Card nextCardPlayed);
     // Advances the game to the next state
 
-  void PlayOutGameMonteCarlo(float finalScores[4], bool& shotTheMoon, const Strategy* opponent);
+  void PlayOutGameMonteCarlo(float finalScores[4], bool& shotTheMoon, const StrategyPtr& opponent);
     // Plays out the rest of this game using random legal moves at each step.
     // Return the final outcome with mean zero scores.
 
@@ -36,7 +36,7 @@ public:
 
   virtual const CardHand& CurrentPlayersHand() const { return mHands[CurrentPlayer()]; }
 
-  Card NextPlay(const Strategy* currentPlayersStrategy, Annotator* annotator = 0);
+  Card NextPlay(const StrategyPtr& currentPlayersStrategy);
 
   void PrintHand(int player) const { mHands[player].Print(); }
 
