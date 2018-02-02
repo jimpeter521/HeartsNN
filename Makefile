@@ -30,6 +30,9 @@ analyze1: analyze
 analyze2: analyze
 	analyze -d 21b91f40fb464bc8fdda384d   # other player (2) shoots moon. May indicate bug in empirical score?
 
+analyze3: analyze
+	analyze -d 5c7bd13b420f5774e65cd0b7   # Player 3 either shoots the moon or misses by 1 point
+
 validate:
 	buck build :validate
 
