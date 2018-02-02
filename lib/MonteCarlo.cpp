@@ -71,7 +71,7 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
 
   assert(knowableState.PointsPlayed() < 26);
 
-  float scores[13][4] = {{0.0}};
+  float scores[13] = {0.0};
 
   // trickWins is a count per legal play of the number of times the play wins the trick.
   // We use it to estimate the probability that if we play this card it will take the trick.
@@ -133,8 +133,7 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
       if (shotTheMoon || stoppedTheMoon)
         updateMoonStats(currentPlayer, i, finalScores, shotTheMoon, pointTricks, stoppedTheMoon, moonCounts);
 
-      for (int j=0; j<4; j++)
-        scores[i][j] += finalScores[j];
+      scores[i] += finalScores[currentPlayer];
     }
 
     if (alternate>=kMinAlternates && delta(start) > kBudget) {
@@ -166,7 +165,7 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
   float bestScore = 1e10;
   float expectedScore[choices.Size()];
   for (unsigned i=0; i<choices.Size(); ++i) {
-    float score = scores[i][currentPlayer] * kScale;
+    float score = scores[i] * kScale;
     expectedScore[i] = score;
     if (bestScore > score) {
       bestScore = score;

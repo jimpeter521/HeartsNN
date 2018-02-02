@@ -140,6 +140,7 @@ void HeartsState::AddToScoreFor(unsigned player, unsigned score)
 
 void HeartsState::CheckForShootTheMoon(float scores[4], bool &shotTheMoon, int pointTricks[4], bool& stoppedTheMoon)
 {
+  const int currentPlayer = CurrentPlayer();
   const unsigned kExpectedTotal = 26u;
 
   memcpy(pointTricks, mPointTricks, sizeof(mPointTricks));
@@ -150,13 +151,9 @@ void HeartsState::CheckForShootTheMoon(float scores[4], bool &shotTheMoon, int p
   int pointsInOneTricks = 0;
 
   unsigned total = 0;
-  shotTheMoon = true;  // assume the unlikely until proven wrong
   for (int i=0; i<4; i++)
   {
     total += mScore[i];
-    if (mScore[i]!=0 && mScore[i]!=kExpectedTotal)
-      shotTheMoon = false;
-
     if (mPointTricks[i] == 0) {
       ++playerWithZeroPointTricks;
     } else if (mPointTricks[i] == 1) {
@@ -180,7 +177,7 @@ void HeartsState::CheckForShootTheMoon(float scores[4], bool &shotTheMoon, int p
   // penalize the current player for being stopped. We'll keep a zero mean making the penalty offset the reward.
   // But if this offset doesn't affect the current player, we can ignore it.
 
-  const int currentPlayer = CurrentPlayer();
+  shotTheMoon = playerWithZeroPointTricks==3;
   stoppedTheMoon = playerWithZeroPointTricks==2 && mPointTricks[currentPlayer] != 0
                 && playerWithOnePointTricks==1 && playerWithMoreThanOnePointTricks==1 && pointsInOneTricks<=4;
 
@@ -188,6 +185,8 @@ void HeartsState::CheckForShootTheMoon(float scores[4], bool &shotTheMoon, int p
 
   if (shotTheMoon)
   {
+    assert(playerWithOnePointTricks == 0);
+    assert(playerWithMoreThanOnePointTricks == 1);
     for (int i=0; i<4; i++) {
       mScore[i] = kExpectedTotal - mScore[i];
       scores[i] = mScore[i] - 19.5;
