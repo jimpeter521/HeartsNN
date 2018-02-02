@@ -57,7 +57,7 @@ public:
   // Player Score tracking
   unsigned GetScoreFor(unsigned player) const;
   void AddToScoreFor(unsigned player, unsigned score);
-  void CheckForShootTheMoon(float scores[4], bool &shotTheMoon);
+  void CheckForShootTheMoon(float scores[4], bool &shotTheMoon, int pointTricks[4], bool& stoppedTheMoon);
 
   // Known voids
   // bool areAnyPlayersKnownVoid() const { return mIsVoidBits.areAnyPlayersKnownVoid(); }
@@ -94,7 +94,15 @@ private:
   Suit mTrickSuit;
   unsigned mPointsPlayed;
   Card mPlays[4];
+
   unsigned mScore[4];
+    // This is the number of points the player has won so far 0..26
+
+  int      mPointTricks[4];
+    // This is the number of tricks that the player won in which points were taken.
+    // When a player shoots the moon, three of the four slots will be 0.
+    // When a player nearly shot the moon but was stopped, two will be zero, one will be 1 (and other will be >1).
+
   VoidBits mIsVoidBits;
   CardDeck mUnplayedCards;
 

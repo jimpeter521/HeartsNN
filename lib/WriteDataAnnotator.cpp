@@ -49,7 +49,7 @@ WriteDataAnnotator::WriteDataAnnotator(bool validateMode)
 
 void WriteDataAnnotator::On_DnnMonteCarlo_choosePlay(const KnowableState& state
                                   , PossibilityAnalyzer* analyzer
-                                  , const float expectedScore[13], const float moonProb[13][3])
+                                  , const float expectedScore[13], const float moonProb[13][5])
 {
 }
 
@@ -71,7 +71,7 @@ std::string FixedPointToString(int x)
 }
 
 void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnalyzer* analyzer, const float expectedScore[13]
-                          , const float moonProb[13][3], const float winsTrickProb[13])
+                          , const float moonProb[13][5], const float winsTrickProb[13])
 {
   FILE* out = mFiles[state.PlayNumber()];
   fprintf(out, "%s\n", asHexString(state.dealIndex()).c_str());
@@ -115,9 +115,9 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
     Card card = it.next();
 
     const int kScale = 1000;
-    int f[3];
+    int f[5];
     int sum = 0;
-    for (int j=0; j<3; j++) {
+    for (int j=0; j<5; j++) {
       int scaled = int(moonProb[i][j] * kScale + 0.5);
       sum += scaled;
       f[j] = scaled;
@@ -126,7 +126,7 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
       // We will add the difference to the first non-zero element less than 1/2 (500)
       int delta = 1000 - sum; // should be 1 nearly all the time
       sum += delta;
-      for (int j=0; j<3; j++) {
+      for (int j=0; j<5; j++) {
         if (f[j]>0 && f[j]<500) {
           f[j] += delta;
           break;
@@ -138,7 +138,7 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
       // We will reduce the largest value
       int imax = 0;
       int max = f[imax];
-      for (int j=1; j<3; j++) {
+      for (int j=1; j<5; j++) {
         if (max < f[j]) {
           max = f[j];
           imax = j;
@@ -149,8 +149,10 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
 
     assert(sum == 1000);
 
-    fprintf(out, "%3s  %5.4f %5.4f | %s %s %s\n", NameOf(card), expectedScore[i], winsTrickProb[i]
-               , FixedPointToString(f[0]).c_str(), FixedPointToString(f[1]).c_str(), FixedPointToString(f[2]).c_str());
+    fprintf(out, "%3s  %5.4f %5.4f | %s %s %s %s %s\n", NameOf(card), expectedScore[i], winsTrickProb[i]
+               , FixedPointToString(f[0]).c_str(), FixedPointToString(f[1]).c_str(), FixedPointToString(f[2]).c_str()
+               , FixedPointToString(f[3]).c_str(), FixedPointToString(f[4]).c_str()
+             );
   }
 
   fprintf(out, "--\n");

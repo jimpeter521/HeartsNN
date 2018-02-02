@@ -72,7 +72,9 @@ void run(int iterations) {
     GameState state;
     float finalScores[4] = {0, 0, 0, 0};
     bool shotTheMoon;
-    state.PlayGame(players, finalScores, shotTheMoon);
+    int pointTricks[4] = {0, 0, 0, 0};
+    bool stoppedTheMoon;
+    state.PlayGame(players, finalScores, shotTheMoon, pointTricks, stoppedTheMoon);
     totalChampScore += finalScores[p];
   }
 

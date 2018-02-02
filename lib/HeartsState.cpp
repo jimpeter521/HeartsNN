@@ -21,6 +21,7 @@ HeartsState::HeartsState(uint128_t dealIndex)
 {
   bzero(mPlays, sizeof(mPlays));
   bzero(mScore, sizeof(mScore));
+  bzero(mPointTricks, sizeof(mPointTricks));
   VerifyHeartsState();
 }
 
@@ -38,6 +39,7 @@ HeartsState::HeartsState(const HeartsState& other)
 {
   memcpy(mPlays, other.mPlays, sizeof(mPlays));
   memcpy(mScore, other.mScore, sizeof(mScore));
+  memcpy(mPointTricks, other.mPointTricks, sizeof(mPointTricks));
   VerifyHeartsState();
 }
 
@@ -130,12 +132,22 @@ unsigned HeartsState::GetScoreFor(unsigned player) const
 
 void HeartsState::AddToScoreFor(unsigned player, unsigned score)
 {
-  mScore[player] += score;
+  if (score) {
+    mScore[player] += score;
+    mPointTricks[player] += 1;
+  }
 }
 
-void HeartsState::CheckForShootTheMoon(float scores[4], bool &shotTheMoon)
+void HeartsState::CheckForShootTheMoon(float scores[4], bool &shotTheMoon, int pointTricks[4], bool& stoppedTheMoon)
 {
   const unsigned kExpectedTotal = 26u;
+
+  memcpy(pointTricks, mPointTricks, sizeof(mPointTricks));
+
+  int playerWithZeroPointTricks = 0;
+  int playerWithOnePointTricks = 0;
+  int playerWithMoreThanOnePointTricks = 0;
+  int pointsInOneTricks = 0;
 
   unsigned total = 0;
   shotTheMoon = true;  // assume the unlikely until proven wrong
@@ -144,8 +156,36 @@ void HeartsState::CheckForShootTheMoon(float scores[4], bool &shotTheMoon)
     total += mScore[i];
     if (mScore[i]!=0 && mScore[i]!=kExpectedTotal)
       shotTheMoon = false;
+
+    if (mPointTricks[i] == 0) {
+      ++playerWithZeroPointTricks;
+    } else if (mPointTricks[i] == 1) {
+      ++playerWithOnePointTricks;
+      pointsInOneTricks += mScore[i];
+    } else {
+      ++playerWithMoreThanOnePointTricks;
+    }
   }
   assert(total == kExpectedTotal);
+
+  // We say that one player shot the moon if they took just one trick with one or more hearts
+  // and another player took all the rest of the points.
+  // If the one trick taken included the Queen of Spades, we don't count that as stopping the other player.
+  // We're only interested in the two cases that involve the current player (shooting or stopping).
+  // If one of the other players stops another of the other players from shooting the moon, we don't
+  // count it as either.
+  // The rationale is that we only track stopping the moon so that we can train the NN to take into account
+  // the strategy of stopping the moon, and the risk of being stopped when their hand isn't strong enough.
+  // We'll do that by using a modified scoring system, where we reward the current player for stopping, and
+  // penalize the current player for being stopped. We'll keep a zero mean making the penalty offset the reward.
+  // But if this offset doesn't affect the current player, we can ignore it.
+
+  const int currentPlayer = CurrentPlayer();
+  stoppedTheMoon = playerWithZeroPointTricks==2 && mPointTricks[currentPlayer] != 0
+                && playerWithOnePointTricks==1 && playerWithMoreThanOnePointTricks==1 && pointsInOneTricks<=4;
+
+  assert(!stoppedTheMoon || !shotTheMoon);
+
   if (shotTheMoon)
   {
     for (int i=0; i<4; i++) {
@@ -159,6 +199,26 @@ void HeartsState::CheckForShootTheMoon(float scores[4], bool &shotTheMoon)
       scores[i] = mScore[i] - 6.5;
     }
   }
+  if (stoppedTheMoon) {
+    int otherPlayer=0;
+    for (; otherPlayer<4; ++otherPlayer) {
+      if (otherPlayer!=currentPlayer && mPointTricks[otherPlayer]!=0)
+        break;
+    }
+    const float kReward = -5;
+    if (mPointTricks[currentPlayer] == 1) {
+      // Yay, we stopped another player
+      scores[currentPlayer] += kReward;
+      scores[otherPlayer] -= kReward;
+    } else {
+      // Boo, we were stopped by other player
+      scores[currentPlayer] -= kReward;
+      scores[otherPlayer] += kReward;
+    }
+  }
+
+
+
 }
 
 void HeartsState::RemoveUnplayedCard(Card card)

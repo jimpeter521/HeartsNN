@@ -28,13 +28,31 @@ static bool floatEqual(float a, float b) {
   return fabsf(a-b) < 0.1;
 }
 
-static void updateMoonStats(unsigned currentPlayer, int iChoice, float finalScores[4], int moonCounts[13][2]) {
-  float myScore = finalScores[currentPlayer];
-  if (floatEqual(myScore, -19.5)) {
-    ++moonCounts[iChoice][0];
+static void updateMoonStats(unsigned currentPlayer, int iChoice
+                        , float finalScores[4], bool shotTheMoon
+                        , int pointTricks[4], bool stoppedTheMoon
+                        , int moonCounts[13][4])
+{
+  // mc[i][0] is I shot the moon,
+  // mc[i][1] is other shot the moon
+  // mc[i][2] is I stopped other from shooting the moon
+  // mc[i][3] is other stopped me from shooting the moon
+  if (shotTheMoon) {
+    float myScore = finalScores[currentPlayer];
+    if (floatEqual(myScore, -19.5)) {
+      ++moonCounts[iChoice][0];
+    } else {
+      assert(floatEqual(myScore, 6.5));
+      ++moonCounts[iChoice][1];
+    }
   } else {
-    assert(floatEqual(myScore, 6.5));
-    ++moonCounts[iChoice][1];
+    assert(stoppedTheMoon);
+    int myPointTricks = pointTricks[currentPlayer];
+    if (myPointTricks == 1) {
+      ++moonCounts[iChoice][2];
+    } else if (myPointTricks > 1) {
+      ++moonCounts[iChoice][3];
+    }
   }
 }
 
@@ -54,8 +72,18 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
   assert(knowableState.PointsPlayed() < 26);
 
   float scores[13][4] = {{0.0}};
-  int moonCounts[13][2] = {{0}}; // mc[i][0] is I shot the moon, mc[i][1] is other shot the moon
+
+  // trickWins is a count per legal play of the number of times the play wins the trick.
+  // We use it to estimate the probability that if we play this card it will take the trick.
   unsigned trickWins[13] = {0};
+
+  int moonCounts[13][4] = {{0}};
+     // Counts across all of the rollouts of when one of four significant events related to shooting the moon occured
+     // There is a fifth event, which is the common case where points are split without anyone coming close to shooting moon
+     // mc[i][0] is I shot the moon,
+     // mc[i][1] is other shot the moon
+     // mc[i][2] is I stopped other from shooting the moon
+     // mc[i][3] is other stopped me from shooting the moon
 
   PossibilityAnalyzer* analyzer = knowableState.Analyze();
   const uint128_t numPossibilities = analyzer->Possibilities();
@@ -93,15 +121,17 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
       next.TrackTrickWinner(trickWins + i);
       next.PlayCard(nextCardPlayed);
 
-      float finalScores[4];
+      float finalScores[4]; // the score each player had at end of the game
+      int   pointTricks[4]; // the number of tricks-with-points each player won
 
       // Do one "roll out", i.e. play out the game to the end, using random plays
       bool shotTheMoon;
-      next.PlayOutGameMonteCarlo(finalScores, shotTheMoon, mIntuition);
+      bool stoppedTheMoon;
+      next.PlayOutGameMonteCarlo(finalScores, shotTheMoon, pointTricks, stoppedTheMoon, mIntuition);
 
       next.TrackTrickWinner(0);
-      if (shotTheMoon)
-        updateMoonStats(currentPlayer, i, finalScores, moonCounts);
+      if (shotTheMoon || stoppedTheMoon)
+        updateMoonStats(currentPlayer, i, finalScores, shotTheMoon, pointTricks, stoppedTheMoon, moonCounts);
 
       for (int j=0; j<4; j++)
         scores[i][j] += finalScores[j];
@@ -119,13 +149,15 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
 
   const unsigned totalAlternates = alternate;
   const float kScale = 1.0 / totalAlternates;
-  float moonProb[13][3];
+  float moonProb[13][5];
   float winsTrickProb[13];
   for (unsigned i=0; i<choices.Size(); ++i) {
-    int notMoonCount = totalAlternates - (moonCounts[i][0] + moonCounts[i][1]);
+    int notMoonCount = totalAlternates - (moonCounts[i][0] + moonCounts[i][1] + moonCounts[i][2] + moonCounts[i][3]);
     moonProb[i][0] = moonCounts[i][0] * kScale;
     moonProb[i][1] = moonCounts[i][1] * kScale;
-    moonProb[i][2] = notMoonCount * kScale;
+    moonProb[i][2] = moonCounts[i][2] * kScale;
+    moonProb[i][3] = moonCounts[i][3] * kScale;
+    moonProb[i][4] = notMoonCount * kScale;
 
     winsTrickProb[i] = trickWins[i] * kScale;
   }
