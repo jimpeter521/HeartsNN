@@ -24,38 +24,6 @@ MonteCarlo::MonteCarlo(const StrategyPtr& intuition, const AnnotatorPtr& annotat
 {
 }
 
-static bool floatEqual(float a, float b) {
-  return fabsf(a-b) < 0.1;
-}
-
-static void updateMoonStats(unsigned currentPlayer, int iChoice
-                        , float finalScores[4], bool shotTheMoon
-                        , int pointTricks[4], bool stoppedTheMoon
-                        , int moonCounts[13][4])
-{
-  // mc[i][0] is I shot the moon,
-  // mc[i][1] is other shot the moon
-  // mc[i][2] is I stopped other from shooting the moon
-  // mc[i][3] is other stopped me from shooting the moon
-  if (shotTheMoon) {
-    float myScore = finalScores[currentPlayer];
-    if (floatEqual(myScore, -19.5)) {
-      ++moonCounts[iChoice][0];
-    } else {
-      assert(floatEqual(myScore, 6.5));
-      ++moonCounts[iChoice][1];
-    }
-  } else {
-    assert(stoppedTheMoon);
-    int myPointTricks = pointTricks[currentPlayer];
-    if (myPointTricks == 1) {
-      ++moonCounts[iChoice][2];
-    } else if (myPointTricks > 1) {
-      ++moonCounts[iChoice][3];
-    }
-  }
-}
-
 // For each legal play, play out (roll out) the game many times
 // Compute the expected score of a play as the average score all game rollouts.
 
@@ -121,19 +89,14 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
       next.TrackTrickWinner(trickWins + i);
       next.PlayCard(nextCardPlayed);
 
-      float finalScores[4]; // the score each player had at end of the game
-      int   pointTricks[4]; // the number of tricks-with-points each player won
-
       // Do one "roll out", i.e. play out the game to the end, using random plays
-      bool shotTheMoon;
-      bool stoppedTheMoon;
-      next.PlayOutGameMonteCarlo(finalScores, shotTheMoon, pointTricks, stoppedTheMoon, mIntuition);
+      GameOutcome outcome = next.PlayOutGameMonteCarlo(mIntuition);
 
       next.TrackTrickWinner(0);
-      if (shotTheMoon || stoppedTheMoon)
-        updateMoonStats(currentPlayer, i, finalScores, shotTheMoon, pointTricks, stoppedTheMoon, moonCounts);
 
-      scores[i] += finalScores[currentPlayer];
+      outcome.updateMoonStats(currentPlayer, i, moonCounts);
+
+      scores[i] += outcome.boringScore(currentPlayer);
     }
 
     if (alternate>=kMinAlternates && delta(start) > kBudget) {
@@ -146,16 +109,24 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
   //   printf("Not stopped: Play %u, choices %u\n", knowableState.PlayNumber(), choices.Size());
   // }
 
+  enum MoonCountKey {
+    kCurrentShotTheMoon = 0,
+    kOtherShotTheMoon = 1,
+    kCurrentStoppedTheMoon = 2,
+    kOtherStoppedTheMoon = 3,
+    kNumMoonCountKeys = 4
+  };
+
   const unsigned totalAlternates = alternate;
   const float kScale = 1.0 / totalAlternates;
   float moonProb[13][5];
   float winsTrickProb[13];
   for (unsigned i=0; i<choices.Size(); ++i) {
     int notMoonCount = totalAlternates - (moonCounts[i][0] + moonCounts[i][1] + moonCounts[i][2] + moonCounts[i][3]);
-    moonProb[i][0] = moonCounts[i][0] * kScale;
-    moonProb[i][1] = moonCounts[i][1] * kScale;
-    moonProb[i][2] = moonCounts[i][2] * kScale;
-    moonProb[i][3] = moonCounts[i][3] * kScale;
+    moonProb[i][kCurrentShotTheMoon] = moonCounts[i][kCurrentShotTheMoon] * kScale;
+    moonProb[i][kOtherShotTheMoon] = moonCounts[i][kOtherShotTheMoon] * kScale;
+    moonProb[i][kCurrentStoppedTheMoon] = moonCounts[i][kCurrentStoppedTheMoon] * kScale;
+    moonProb[i][kOtherStoppedTheMoon] = moonCounts[i][kOtherStoppedTheMoon] * kScale;
     moonProb[i][4] = notMoonCount * kScale;
 
     winsTrickProb[i] = trickWins[i] * kScale;

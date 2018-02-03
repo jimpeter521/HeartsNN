@@ -85,8 +85,7 @@ void GameState::VerifyGameState() const
 #endif
 }
 
-void GameState::PlayGame(StrategyPtr players[4], float finalScores[4], bool& shotTheMoon
-                      , int pointTricks[4], bool& stoppedTheMoon)
+GameOutcome GameState::PlayGame(StrategyPtr players[4])
 {
   // We allow calling this method from a GameState in the middle of the game.
   // so we intentionally do not set mNextPlay=0 for first iteration of loop here.
@@ -100,18 +99,16 @@ void GameState::PlayGame(StrategyPtr players[4], float finalScores[4], bool& sho
     }
     NextPlay(player);
   }
-  CheckForShootTheMoon(finalScores, shotTheMoon, pointTricks, stoppedTheMoon);
+  return CheckForShootTheMoon();
 }
 
-void GameState::PlayOutGameMonteCarlo(float finalScores[4], bool& shotTheMoon
-                                    , int pointTricks[4], bool& stoppedTheMoon
-                                    , const StrategyPtr& opponent)
+GameOutcome GameState::PlayOutGameMonteCarlo(const StrategyPtr& opponent)
 {
   while (!Done())
   {
     NextPlay(opponent);
   }
-  CheckForShootTheMoon(finalScores, shotTheMoon, pointTricks, stoppedTheMoon);
+  return CheckForShootTheMoon();
 }
 
 void GameState::PrintPlay(int player, Card card) const

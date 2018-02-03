@@ -70,12 +70,8 @@ void run(int iterations) {
     players[p] = player;
 
     GameState state;
-    float finalScores[4] = {0, 0, 0, 0};
-    bool shotTheMoon;
-    int pointTricks[4] = {0, 0, 0, 0};
-    bool stoppedTheMoon;
-    state.PlayGame(players, finalScores, shotTheMoon, pointTricks, stoppedTheMoon);
-    totalChampScore += finalScores[p];
+    GameOutcome outcome = state.PlayGame(players);
+    totalChampScore += outcome.modifiedScore(p);
   }
 
   printf("Average champion score: %3.1f\n", totalChampScore / iterations);

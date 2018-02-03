@@ -3,6 +3,7 @@
 #include "lib/Deal.h"
 #include "lib/HeartsState.h"
 #include "lib/Strategy.h"
+#include "lib/GameState.h"
 
 class GameState : public HeartsState
 {
@@ -17,7 +18,7 @@ public:
 
   GameState(const CardHands& hands, const KnowableState& knowableState);
 
-  void PlayGame(StrategyPtr players[4], float finalScores[4], bool& shotTheMoon, int pointTricks[4], bool& stoppedTheMoon);
+  GameOutcome PlayGame(StrategyPtr players[4]);
     // Return the final outcome with mean zero scores.
     // If the playerWithQueen is not NULL, return in it the number of the player who got the queen in this game.
 
@@ -26,7 +27,7 @@ public:
   void PlayCard(Card nextCardPlayed);
     // Advances the game to the next state
 
-  void PlayOutGameMonteCarlo(float finalScores[4], bool& shotTheMoon, int pointTricks[4], bool& stoppedTheMoon, const StrategyPtr& opponent);
+  GameOutcome PlayOutGameMonteCarlo(const StrategyPtr& opponent);
     // Plays out the rest of this game using random legal moves at each step.
     // Return in finalScores the final outcome with mean zero scores.
     // Return in pointTricks the count of points-with-tricks won by each player

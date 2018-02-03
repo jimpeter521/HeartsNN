@@ -138,86 +138,11 @@ void HeartsState::AddToScoreFor(unsigned player, unsigned score)
   }
 }
 
-void HeartsState::CheckForShootTheMoon(float scores[4], bool &shotTheMoon, int pointTricks[4], bool& stoppedTheMoon)
+GameOutcome HeartsState::CheckForShootTheMoon()
 {
-  const int currentPlayer = CurrentPlayer();
-  const unsigned kExpectedTotal = 26u;
-
-  memcpy(pointTricks, mPointTricks, sizeof(mPointTricks));
-
-  int playerWithZeroPointTricks = 0;
-  int playerWithOnePointTricks = 0;
-  int playerWithMoreThanOnePointTricks = 0;
-  int pointsInOneTricks = 0;
-
-  unsigned total = 0;
-  for (int i=0; i<4; i++)
-  {
-    total += mScore[i];
-    if (mPointTricks[i] == 0) {
-      ++playerWithZeroPointTricks;
-    } else if (mPointTricks[i] == 1) {
-      ++playerWithOnePointTricks;
-      pointsInOneTricks += mScore[i];
-    } else {
-      ++playerWithMoreThanOnePointTricks;
-    }
-  }
-  assert(total == kExpectedTotal);
-
-  // We say that one player shot the moon if they took just one trick with one or more hearts
-  // and another player took all the rest of the points.
-  // If the one trick taken included the Queen of Spades, we don't count that as stopping the other player.
-  // We're only interested in the two cases that involve the current player (shooting or stopping).
-  // If one of the other players stops another of the other players from shooting the moon, we don't
-  // count it as either.
-  // The rationale is that we only track stopping the moon so that we can train the NN to take into account
-  // the strategy of stopping the moon, and the risk of being stopped when their hand isn't strong enough.
-  // We'll do that by using a modified scoring system, where we reward the current player for stopping, and
-  // penalize the current player for being stopped. We'll keep a zero mean making the penalty offset the reward.
-  // But if this offset doesn't affect the current player, we can ignore it.
-
-  shotTheMoon = playerWithZeroPointTricks==3;
-  stoppedTheMoon = playerWithZeroPointTricks==2 && mPointTricks[currentPlayer] != 0
-                && playerWithOnePointTricks==1 && playerWithMoreThanOnePointTricks==1 && pointsInOneTricks<=4;
-
-  assert(!stoppedTheMoon || !shotTheMoon);
-
-  if (shotTheMoon)
-  {
-    assert(playerWithOnePointTricks == 0);
-    assert(playerWithMoreThanOnePointTricks == 1);
-    for (int i=0; i<4; i++) {
-      mScore[i] = kExpectedTotal - mScore[i];
-      scores[i] = mScore[i] - 19.5;
-    }
-  }
-  else
-  {
-    for (int i=0; i<4; i++) {
-      scores[i] = mScore[i] - 6.5;
-    }
-  }
-  if (stoppedTheMoon) {
-    int otherPlayer=0;
-    for (; otherPlayer<4; ++otherPlayer) {
-      if (otherPlayer!=currentPlayer && mPointTricks[otherPlayer]!=0)
-        break;
-    }
-    const float kReward = -5;
-    if (mPointTricks[currentPlayer] == 1) {
-      // Yay, we stopped another player
-      scores[currentPlayer] += kReward;
-      scores[otherPlayer] -= kReward;
-    } else {
-      // Boo, we were stopped by other player
-      scores[currentPlayer] -= kReward;
-      scores[otherPlayer] += kReward;
-    }
-  }
-
-
-
+  GameOutcome outcome;
+  outcome.Set(mPointTricks, mScore);
+  return outcome;
 }
 
 void HeartsState::RemoveUnplayedCard(Card card)
