@@ -200,14 +200,14 @@ struct Scores {
     std::fill(&mCross[0][0], &mCross[2][0], 0.0);
   }
 
-  void Accumulate(StrategyPtr players[4], const float scores[4]) {
+  void Accumulate(StrategyPtr players[4], const GameOutcome& outcome) {
     for (int j=0; j<4; ++j) {
       StrategyPtr player = players[j];
       assert(player==gChampion || player==gOpponent);
       int playerIndex = player == gChampion ? 0 : 1;
-      mPlayer[playerIndex] += scores[j];
-      mPosition[j] += scores[j];
-      mCross[playerIndex][j] += scores[j];
+      mPlayer[playerIndex] += outcome.modifiedScore(j);
+      mPosition[j] += outcome.modifiedScore(j);
+      mCross[playerIndex][j] += outcome.modifiedScore(j);
     }
   }
 
@@ -231,21 +231,24 @@ struct Scores {
 void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, bool& moon) {
   Deal deck(dealIndex);
   GameState state(deck);
-  float finalScores[4] = {0, 0, 0, 0};
-  state.PlayGame(players, finalScores, moon);
+  GameOutcome outcome = state.PlayGame(players);
+  moon = outcome.shotTheMoon();
+  bool stopped = outcome.stoppedTheMoon();
 
   const char* name[2] = {"c", "o"};
 
-  scores.Accumulate(players, finalScores);
+  scores.Accumulate(players, outcome);
 
   for (int i=0; i<4; ++i) {
     StrategyPtr player = players[i];
     assert(player==gChampion || player==gOpponent);
     int playerIndex = player == gChampion ? 0 : 1;
-    printf("%s=%5.1f ", name[playerIndex], finalScores[i]);
+    printf("%s=%5.1f ", name[playerIndex], outcome.modifiedScore(i));
   }
   if (moon)
     printf("  Shot the moon!\n");
+  else if (stopped)
+    printf("  Moon stopped!\n");
   else
     printf("\n");
 }

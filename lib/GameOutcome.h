@@ -47,6 +47,9 @@ public:
     // This score is also zero mean as the above, but has a higher range, up to 18.5+stopTheMoonPenalty,
     // and goes below -6.5 for the player who stopped the moon, to as low as as -5.5-stopTheMoonPenalty.
 
+  const bool shotTheMoon() const { return mShotTheMoon; }
+  const bool stoppedTheMoon() const { return mStoppedTheMoon; }
+
 private:
   const int mStopTheMoonPenalty;
   unsigned mScores[4];
