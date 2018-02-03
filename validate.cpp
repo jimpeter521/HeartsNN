@@ -40,9 +40,7 @@ void run(uint128_t dealIndex, StrategyPtr player, StrategyPtr opponent) {
     Deal deal(dealIndex);
     GameState state(deal);
 
-    float finalScores[4] = {0, 0, 0, 0};
-    bool shotTheMoon;
-    state.PlayGame(players, finalScores, shotTheMoon);
+    /*GameOutcome outcome =*/ state.PlayGame(players);
   }
 }
 
