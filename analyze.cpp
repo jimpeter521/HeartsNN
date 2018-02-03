@@ -137,14 +137,13 @@ void runGame(StrategyPtr players[4]) {
   deck.printDeal();
 
   GameState state(deck);
-  bool shotTheMoon;
-  float finalScores[4] = {0, 0, 0, 0};
-  state.PlayGame(players, finalScores, shotTheMoon);
+  GameOutcome outcome = state.PlayGame(players);
 
-  if (shotTheMoon) {
+  if (outcome.shotTheMoon()) {
     printf("Shot the moon!\n");
   }
-  printf("Final scores: %3.1f %3.1f %3.1f %3.1f\n", finalScores[0], finalScores[1], finalScores[2], finalScores[3]);
+  printf("Final scores: %3.1f %3.1f %3.1f %3.1f\n", outcome.modifiedScore(0), outcome.modifiedScore(1)
+            , outcome.modifiedScore(2), outcome.modifiedScore(3));
 }
 
 int main(int argc, char** argv)
