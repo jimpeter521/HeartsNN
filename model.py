@@ -30,12 +30,22 @@ def hidden_layers(input, depth, width, activation):
 
 def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraining=True):
     assert input.shape.dims[-1] == 1
+    input_height = int(input.shape.dims[-3])
     input_features = int(input.shape.dims[-2])
     kernel_size = (ranks, input_features)
+    input_units = input_height * input_features
     strides = (stride, 1)
-    REDUCTION = 1.0 # Output layer will have 80% of the features of the input layer.
-    filters = int(ranks*input_features * REDUCTION)
-    # print(f'Name: {name}, Input features: {input_features}, Output features: {filters}, Kernel size: {kernel_size}')
+
+    kernel_height = ranks
+    assert (input_height-kernel_height) % stride == 0
+    output_height = ((input_height-kernel_height) // stride) + 1
+
+    SCALE = 0.9
+    # With SCALE=1.0, we compute a number of output filters/features that will approximate the number of input features
+    # We typically will want to gradually reduce the number of features in each layer, so use a SCALE a little less than 1.0
+    filters = int(round(SCALE * float(input_height)*float(input_features)/float(output_height)))
+    output_units = output_height * filters
+    # print(f'Name: {name}, input_height: {input_height}, input_units: {input_units}, output_units: {output_units}, Kernel size: {kernel_size}')
     assert filters > 0
     conv = input
     with tf.variable_scope(name):
@@ -54,10 +64,14 @@ def convolution_layers(mainData, activation, isTraining):
         assert num_features == INPUT_FEATURES
         conv = tf.reshape(distribution, [-1, NUM_RANKS, num_features, 1])
 
-        conv = one_conv_layer(conv, ranks=2, stride=1, name='L1_R2_S1', activation=activation, isTraining=isTraining)
-        conv = one_conv_layer(conv, ranks=4, stride=2, name='L2_R4_S2', activation=activation, isTraining=isTraining)
-        conv = one_conv_layer(conv, ranks=3, stride=2, name='L3_R3_S2', activation=activation, isTraining=isTraining)
-        conv = one_conv_layer(conv, ranks=2, stride=1, name='L4_R2_S1', activation=activation, isTraining=isTraining)
+        # We could generalize here and allow stride to be a parameter, but after some experimentation it seems
+        # likely that restricting stride to always be 1 is beneficial.
+        # The set of "ranks" here (actually kernel_height) is probably near optimal so is unlikely to change
+        stride = 1
+        ranks = [2, 3, 4, 5, 3]
+
+        for i, r in enumerate(ranks):
+            conv = one_conv_layer(conv, ranks=r, stride=stride, name=f'L{i+1}_R{r}', activation=activation, isTraining=isTraining)
 
         assert conv.shape.dims[-1] == 1
         num_features = int(conv.shape.dims[-2])
