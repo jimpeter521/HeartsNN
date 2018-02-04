@@ -53,7 +53,6 @@ def load_memmaps(dirPath):
 
     return mainData, scoresData, winTrickProbs, moonProbData
 
-
 # We load all training and validation data into (virtual) RAM by using numpy memmap files.
 # We can fairly easily generate plenty of data and still easily fit it all into RAM on a machine with 32Gb of RAM.
 # The amount of data is much larger than a reasonable batch size.
@@ -169,7 +168,9 @@ def train_with_params(train_memmaps, eval_memmaps, params, init_batch=1024, init
     model_dir_path = f'{ROOT_MODEL_DIR}/d{hidden_depth}w{hidden_width}r{redundancy}_{activation}'
     os.makedirs(model_dir_path, exist_ok=True)
 
-    config = tf.estimator.RunConfig(keep_checkpoint_max=20)
+    params['model_dir_path'] = model_dir_path
+
+    config = tf.estimator.RunConfig(keep_checkpoint_max=20, save_summary_steps=init_steps)
     estimator = tf.estimator.Estimator(model_fn=model_fn, params=params, model_dir=model_dir_path, config=config)
 
     feature_spec = {

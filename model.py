@@ -96,7 +96,6 @@ def activation_fn(name):
     else:
         assert False
 
-
 def model_fn(features, labels, mode, params={}):
     """Model function for Estimator."""
 
@@ -137,6 +136,11 @@ def model_fn(features, labels, mode, params={}):
 
     # At least one of the three heads must be enabled
     assert SCORE or TRICK or MOON
+
+    # We have 52 total cards, but only a small subset of them are legal plays.
+    # Any metric that computes a mean by dividing by 52 is a distorted metric.
+    # We should instead compute our own sum and divide by the number of legal plays
+    num_legal = tf.reduce_sum(legalPlays, name='num_legal')
 
     if SCORE:
       with tf.variable_scope(EXPECTED_SCORE):
@@ -179,25 +183,32 @@ def model_fn(features, labels, mode, params={}):
     if SCORE:
       with tf.variable_scope('expected_score_loss'):
           y_expected_score = labels[EXPECTED_SCORE]
-          expected_score_loss = tf.losses.mean_squared_error(y_expected_score, expectedScoreLogits)
+          expected_score_diff = tf.subtract(y_expected_score, expectedScoreLogits)
+          expected_score_diff2 = tf.square(expected_score_diff)
+          expected_score_squared_sum = tf.reduce_sum(expected_score_diff2)
+          expected_score_loss = tf.divide(expected_score_squared_sum, num_legal)
           expected_score_loss = tf.log(expected_score_loss)
-          tf.summary.scalar("expected_score_loss", expected_score_loss)
+          tf.summary.scalar('expected_score_loss', expected_score_loss)
 
     if TRICK:
       with tf.variable_scope('win_trick_prob_loss'):
           y_win_trick_prob = labels[WIN_TRICK_PROB]
-          win_trick_prob_loss = tf.losses.mean_squared_error(y_win_trick_prob, winTrickLogits)
+          win_trick_prob_diff = tf.subtract(y_win_trick_prob, winTrickLogits)
+          win_trick_prob_diff2 = tf.square(win_trick_prob_diff)
+          win_trick_prob_squared_sum = tf.reduce_sum(win_trick_prob_diff2)
+          win_trick_prob_loss = tf.divide(win_trick_prob_squared_sum, num_legal)
           win_trick_prob_loss = tf.log(win_trick_prob_loss)
-          tf.summary.scalar("win_trick_prob_loss", win_trick_prob_loss)
+          tf.summary.scalar('win_trick_prob_loss', win_trick_prob_loss)
 
     if MOON:
       with tf.variable_scope('moon_prob_loss'):
           y_moon_prob = tf.reshape(labels[MOON_PROB], (-1, CARDS_IN_DECK, MOON_CLASSES))
           moon_prob_losses = tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.stop_gradient(y_moon_prob), logits=moonProbLogits)
           moon_prob_losses = tf.multiply(moon_prob_losses, legalPlays, 'masked')
-          moon_prob_loss = tf.reduce_mean(moon_prob_losses, name='moon_prob_mean_loss')
+          moon_prob_loss = tf.reduce_sum(moon_prob_losses, name='moon_prob_loss_sum')
+          moon_prob_loss = tf.divide(moon_prob_loss, num_legal, name='moon_prob_loss_mean')
           moon_prob_loss = tf.log(moon_prob_loss)
-          tf.summary.scalar("moon_prob_loss", moon_prob_loss)
+          tf.summary.scalar('moon_prob_loss', moon_prob_loss)
 
     with tf.variable_scope('total_loss'):
         total_loss = 0.0
@@ -213,14 +224,20 @@ def model_fn(features, labels, mode, params={}):
 
     eval_metric_ops = {}
 
-    if SCORE:
-      eval_metric_ops['expected_score_loss'] = tf.metrics.mean_squared_error(y_expected_score, expectedScoreLogits)
+    # if SCORE:
+    #   eval_metric_ops['expected_score_loss'] = tf.metrics.mean_squared_error(y_expected_score, expectedScoreLogits)
+    #
+    # if TRICK:
+    #   eval_metric_ops['win_trick_prob_loss'] = tf.metrics.mean_squared_error(y_win_trick_prob, winTrickLogits)
+    #
+    # if MOON:
+    #   eval_metric_ops['moon_prob_loss'] = tf.metrics.mean(moon_prob_loss)
 
-    if TRICK:
-      eval_metric_ops['win_trick_prob_loss'] = tf.metrics.mean_squared_error(y_win_trick_prob, winTrickLogits)
+    model_dir_path = params['model_dir_path']
+    assert model_dir_path is not None
 
-    if MOON:
-      eval_metric_ops['moon_prob_loss'] = tf.metrics.mean(moon_prob_loss)
+    summary_hook = tf.train.SummarySaverHook(output_dir= f'{model_dir_path}/eval', save_steps=1,
+        scaffold=tf.train.Scaffold(summary_op=tf.summary.merge_all()))
 
     return tf.estimator.EstimatorSpec(mode=mode, loss=total_loss, train_op=train_op, export_outputs=export_outputs,
-                                        eval_metric_ops=eval_metric_ops)
+                                        eval_metric_ops=eval_metric_ops, evaluation_hooks=[summary_hook])
