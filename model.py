@@ -126,7 +126,7 @@ def model_fn(features, labels, mode, params={}):
 
     if SCORE:
       with tf.variable_scope(EXPECTED_SCORE):
-          expectedScoreLogits = tf.layers.dense(last_common_layer, CARDS_IN_DECK, name='logits', activation=tf.tanh)
+          expectedScoreLogits = tf.layers.dense(last_common_layer, CARDS_IN_DECK, name='logits')
           expectedScoreLogits = tf.multiply(expectedScoreLogits, legalPlays, name=EXPECTED_SCORE)
           tf.summary.histogram("expectedScoreLogits", expectedScoreLogits)
       outputs_dict[EXPECTED_SCORE] = expectedScoreLogits
