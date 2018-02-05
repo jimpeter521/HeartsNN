@@ -180,6 +180,10 @@ def model_fn(features, labels, mode, params={}):
 
     assert labels is not None
 
+    # I'd like to figure out how to log these variables after each call to estimator.train() or estimator.evaluate()
+    # It can probably be done with a hook, but I haven't yet figured out how.
+    var_list = []
+
     if SCORE:
       with tf.variable_scope('expected_score_loss'):
           y_expected_score = labels[EXPECTED_SCORE]
@@ -187,7 +191,7 @@ def model_fn(features, labels, mode, params={}):
           expected_score_diff2 = tf.square(expected_score_diff)
           expected_score_squared_sum = tf.reduce_sum(expected_score_diff2)
           expected_score_loss = tf.divide(expected_score_squared_sum, num_legal)
-          expected_score_loss = tf.log(expected_score_loss)
+          expected_score_loss = tf.log(expected_score_loss, name='log_expected_score_loss')
           tf.summary.scalar('expected_score_loss', expected_score_loss)
 
     if TRICK:
@@ -197,7 +201,7 @@ def model_fn(features, labels, mode, params={}):
           win_trick_prob_diff2 = tf.square(win_trick_prob_diff)
           win_trick_prob_squared_sum = tf.reduce_sum(win_trick_prob_diff2)
           win_trick_prob_loss = tf.divide(win_trick_prob_squared_sum, num_legal)
-          win_trick_prob_loss = tf.log(win_trick_prob_loss)
+          win_trick_prob_loss = tf.log(win_trick_prob_loss, name='log_win_trick_prob_loss')
           tf.summary.scalar('win_trick_prob_loss', win_trick_prob_loss)
 
     if MOON:
@@ -207,16 +211,19 @@ def model_fn(features, labels, mode, params={}):
           moon_prob_losses = tf.multiply(moon_prob_losses, legalPlays, 'masked')
           moon_prob_loss = tf.reduce_sum(moon_prob_losses, name='moon_prob_loss_sum')
           moon_prob_loss = tf.divide(moon_prob_loss, num_legal, name='moon_prob_loss_mean')
-          moon_prob_loss = tf.log(moon_prob_loss)
+          moon_prob_loss = tf.log(moon_prob_loss, name='log_moon_prob_loss')
           tf.summary.scalar('moon_prob_loss', moon_prob_loss)
 
     with tf.variable_scope('total_loss'):
         total_loss = 0.0
         if SCORE:
           total_loss = tf.add(total_loss, expected_score_loss)
+          var_list.append(expected_score_loss)
         if TRICK:
           total_loss = tf.add(total_loss, win_trick_prob_loss)
+          var_list.append(win_trick_prob_loss)
         if MOON:
+          var_list.append(moon_prob_loss)
           total_loss = tf.add(total_loss, moon_prob_loss)
 
     optimizer = tf.train.AdamOptimizer()
