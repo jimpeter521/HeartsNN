@@ -26,6 +26,9 @@ void loadModel(const char* path) {
   }
 }
 
+int gMinAlternates = 19;
+int gMaxAlternates = 20;
+float gTimeBudget = 1.0;
 int gNumMatches = 0;
 uint128_t* gDeals = 0;
 StrategyPtr gOpponent;
@@ -34,6 +37,8 @@ const char* gModelPath = "./savedmodel";
 
 bool gSaveMoonDeals = true;
 
+AnnotatorPtr kNoAnnotator(0);
+
 StrategyPtr makePlayer(const char* arg) {
   StrategyPtr player;
   if (arg == 0 || std::string(arg) == std::string("random")) {
@@ -41,7 +46,7 @@ StrategyPtr makePlayer(const char* arg) {
   }
   else if (std::string(arg) == std::string("simple")) {
     StrategyPtr intuition(new RandomStrategy());
-    player = StrategyPtr(new MonteCarlo(intuition));
+    player = StrategyPtr(new MonteCarlo(intuition, gMinAlternates, gMaxAlternates, gTimeBudget, kNoAnnotator));
   }
   else if (std::string(arg) == std::string("intuition")) {
     loadModel(gModelPath);
@@ -50,12 +55,12 @@ StrategyPtr makePlayer(const char* arg) {
   else if (std::string(arg) == std::string("dnnmonte")) {
     loadModel(gModelPath);
     StrategyPtr intuition(new DnnModelIntuition(gModel));
-    player = StrategyPtr(new MonteCarlo(intuition));
+    player = StrategyPtr(new MonteCarlo(intuition, gMinAlternates, gMaxAlternates, gTimeBudget, kNoAnnotator));
   }
   else {
     loadModel(arg);
     StrategyPtr intuition(new DnnModelIntuition(gModel));
-    player = StrategyPtr(new MonteCarlo(intuition));
+    player = StrategyPtr(new MonteCarlo(intuition, gMinAlternates, gMaxAlternates, gTimeBudget, kNoAnnotator));
   }
   return player;
 }
@@ -116,6 +121,9 @@ void parseArgs(int argc, char** argv) {
     { "opponent", required_argument, NULL, 'o' },
     { "champion", required_argument, NULL, 'c' },
     { "deals", required_argument, NULL, 'd'},
+    { "min_alts",  required_argument, NULL, 'n' },
+    { "max_alts",  required_argument, NULL, 'x' },
+    { "budget",  required_argument, NULL, 't' },
     { "help", no_argument, NULL, 'h' },
     { NULL,                       0, NULL,  0  }
   };
@@ -123,7 +131,7 @@ void parseArgs(int argc, char** argv) {
   while (true) {
 
     int longindex = 0;
-    int ch = getopt_long(argc, argv, "m:g:o:c:d:h", longopts, &longindex);
+    int ch = getopt_long(argc, argv, "m:g:o:c:d:x:n:b:h", longopts, &longindex);
     if (ch == -1) {
       break;
     }
@@ -151,6 +159,27 @@ void parseArgs(int argc, char** argv) {
         randomDeals(atoi(optarg));
         break;
       }
+      case 'x':
+      {
+        gMaxAlternates = atoi(optarg);
+        assert(gMaxAlternates >= 10);
+        assert(gMaxAlternates <= 1000);
+        break;
+      }
+      case 'n':
+      {
+        gMinAlternates = atoi(optarg);
+        assert(gMinAlternates >= 5);
+        assert(gMinAlternates <= 100);
+        break;
+      }
+      case 'b':
+      {
+        gTimeBudget = atof(optarg);
+        assert(gTimeBudget >= 0.005);
+        assert(gTimeBudget <= 1.000);
+        break;
+      }
       case 'd':
       {
         readDeals(optarg);
@@ -165,6 +194,10 @@ void parseArgs(int argc, char** argv) {
       }
     }
   }
+
+  assert(gMinAlternates < gMaxAlternates);
+
+  printf("min(%u), max(%u), time(%4.2f)\n", gMinAlternates, gMaxAlternates, gTimeBudget);
 
   if (gDeals == 0) {
     randomDeals(1);
