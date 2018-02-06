@@ -400,7 +400,7 @@ Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, tensorflo
   using namespace tensorflow;
 
   std::vector<Tensor> outputs;
-  auto result = model.session->Run({{"main_data:0", mainData}}, {"expected_score/expected_score:0"}, {}, &outputs);
+  auto result = model.session->Run({{"main_data_1:0", mainData}}, {"expected_score/expected_score:0"}, {}, &outputs);
   if (!result.ok()) {
     printf("Tensorflow prediction failed: %s\n", result.error_message().c_str());
     exit(1);
