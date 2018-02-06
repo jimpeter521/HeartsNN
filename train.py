@@ -240,7 +240,7 @@ if __name__ == '__main__':
     assert len(train_memmaps[0]) <= len(eval_memmaps[0])
 
     evals = {}
-    for hidden_width in [180, 200, 220]:
+    for hidden_width in [200, 220]:
         for hidden_depth in [1]:
             for activation in ['relu']:
                 for redundancy in [0]:

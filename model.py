@@ -180,9 +180,7 @@ def model_fn(features, labels, mode, params={}):
 
     assert labels is not None
 
-    # I'd like to figure out how to log these variables after each call to estimator.train() or estimator.evaluate()
-    # It can probably be done with a hook, but I haven't yet figured out how.
-    var_list = []
+    scalars = {'$$$': tf.constant(mode, dtype=tf.string)}
 
     if SCORE:
       with tf.variable_scope('expected_score_loss'):
@@ -191,8 +189,11 @@ def model_fn(features, labels, mode, params={}):
           expected_score_diff2 = tf.square(expected_score_diff)
           expected_score_squared_sum = tf.reduce_sum(expected_score_diff2)
           expected_score_loss = tf.divide(expected_score_squared_sum, num_legal)
-          expected_score_loss = tf.log(expected_score_loss, name='log_expected_score_loss')
+          expected_score_loss = tf.log(expected_score_loss)
+          # Finally divide the log by 2 so we are using log of RMSE.
+          expected_score_loss = tf.divide(expected_score_loss, 2.0, name='log_expected_score_loss')
           tf.summary.scalar('expected_score_loss', expected_score_loss)
+          scalars[EXPECTED_SCORE] = expected_score_loss
 
     if TRICK:
       with tf.variable_scope('win_trick_prob_loss'):
@@ -201,50 +202,43 @@ def model_fn(features, labels, mode, params={}):
           win_trick_prob_diff2 = tf.square(win_trick_prob_diff)
           win_trick_prob_squared_sum = tf.reduce_sum(win_trick_prob_diff2)
           win_trick_prob_loss = tf.divide(win_trick_prob_squared_sum, num_legal)
-          win_trick_prob_loss = tf.log(win_trick_prob_loss, name='log_win_trick_prob_loss')
+          win_trick_prob_loss = tf.log(win_trick_prob_loss)
+          # Finally divide the log by 2 so we are using log of RMSE.
+          win_trick_prob_loss = tf.divide(win_trick_prob_loss, 2.0, name='log_win_trick_prob_loss')
           tf.summary.scalar('win_trick_prob_loss', win_trick_prob_loss)
+          scalars[WIN_TRICK_PROB] = win_trick_prob_loss
 
     if MOON:
       with tf.variable_scope('moon_prob_loss'):
           y_moon_prob = tf.reshape(labels[MOON_PROB], (-1, CARDS_IN_DECK, MOON_CLASSES))
-          moon_prob_losses = tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.stop_gradient(y_moon_prob), logits=moonProbLogits)
-          moon_prob_losses = tf.multiply(moon_prob_losses, legalPlays, 'masked')
+          kldiverg = tf.keras.losses.kullback_leibler_divergence(y_moon_prob, moon_probs)
+          moon_prob_losses = tf.multiply(kldiverg, legalPlays, 'masked')
           moon_prob_loss = tf.reduce_sum(moon_prob_losses, name='moon_prob_loss_sum')
           moon_prob_loss = tf.divide(moon_prob_loss, num_legal, name='moon_prob_loss_mean')
           moon_prob_loss = tf.log(moon_prob_loss, name='log_moon_prob_loss')
           tf.summary.scalar('moon_prob_loss', moon_prob_loss)
+          scalars[MOON_PROB] = moon_prob_loss
 
     with tf.variable_scope('total_loss'):
         total_loss = 0.0
         if SCORE:
           total_loss = tf.add(total_loss, expected_score_loss)
-          var_list.append(expected_score_loss)
         if TRICK:
           total_loss = tf.add(total_loss, win_trick_prob_loss)
-          var_list.append(win_trick_prob_loss)
         if MOON:
-          var_list.append(moon_prob_loss)
           total_loss = tf.add(total_loss, moon_prob_loss)
 
+    scalars['total_loss'] = total_loss
     optimizer = tf.train.AdamOptimizer()
     train_op = optimizer.minimize(loss=total_loss, global_step=tf.train.get_global_step())
 
-    eval_metric_ops = {}
-
-    # if SCORE:
-    #   eval_metric_ops['expected_score_loss'] = tf.metrics.mean_squared_error(y_expected_score, expectedScoreLogits)
-    #
-    # if TRICK:
-    #   eval_metric_ops['win_trick_prob_loss'] = tf.metrics.mean_squared_error(y_win_trick_prob, winTrickLogits)
-    #
-    # if MOON:
-    #   eval_metric_ops['moon_prob_loss'] = tf.metrics.mean(moon_prob_loss)
-
     model_dir_path = params['model_dir_path']
     assert model_dir_path is not None
+
+    logging_hook = tf.train.LoggingTensorHook(scalars, every_n_iter=1)
 
     summary_hook = tf.train.SummarySaverHook(output_dir= f'{model_dir_path}/eval', save_steps=1,
         scaffold=tf.train.Scaffold(summary_op=tf.summary.merge_all()))
 
     return tf.estimator.EstimatorSpec(mode=mode, loss=total_loss, train_op=train_op, export_outputs=export_outputs,
-                                        eval_metric_ops=eval_metric_ops, evaluation_hooks=[summary_hook])
+                                      evaluation_hooks=[summary_hook, logging_hook])
