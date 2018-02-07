@@ -31,6 +31,10 @@ int gMaxAlternates = 20;
 float gTimeBudget = 1.0;
 int gNumMatches = 0;
 uint128_t* gDeals = 0;
+
+const char* gChampionStr = "simple";
+const char* gOpponentStr = "random";
+
 StrategyPtr gOpponent;
 StrategyPtr gChampion;
 const char* gModelPath = "./savedmodel";
@@ -67,11 +71,17 @@ StrategyPtr makePlayer(const char* arg) {
 
 void usage() {
   const char* lines[] = {
-    "Usage: tournament [--games <int>] [--model <modelPath>] [--opponent <strategy>]  [--champion <strategy>] [--deals <dealIndexFile>",
-    "  <strategy> may be either of the strings ['random', 'simple', 'intuition', 'dnnmonte'] or a path to a saved model directory",
-    "  If unspecified, the default <strategy> for opponent is 'random', and for champion is 'simple'",
-    "  The intuition and dnnmonte load the model at modelPath which defaults to './savedmodel'",
-    "  The default number of games is 1.",
+    "Usage: tournament [options...]",
+    "  Options:",
+    "    -g,--games <int>           the number of games to play (default:1)",
+    "    -m,--model <modelPath>     a path to the model to load for `intuion` and `dnnmonte` strategies (default:savemodel)",
+    "    -o,--opponent <strategy>   the strategy to use for the `opponent` (default:random)",
+    "    -c,--champion <strategy>   the strategy to use for the `champion` (default: simple)",
+    "    -d,--deals <dealIndexFile> a file containing deal indexes to play from (default: choose deals at random)",
+    "    -n,--min_alts <int>        the minimum number of alternate simulated games for the `simple` and `dnnmonte` players",
+    "    -x,--max_alts <int>        the maximum number of alternate simulated games for the `simple` and `dnnmonte` players",
+    "    -b,--budget <float>        the time budget in seconds for the `simple` and `dnnmonte` players to use",
+    "    -h,--help                  print this message",
     0
   };
   for (int i=0; lines[i]!=0; ++i)
@@ -80,8 +90,6 @@ void usage() {
 }
 
 const void randomDeals(int n) {
-  assert(n>0);
-  assert(n<=1000);
   gNumMatches = n;
   gDeals = new uint128_t[gNumMatches];
   for (int i=0; i<gNumMatches; ++i)
@@ -90,7 +98,6 @@ const void randomDeals(int n) {
 
 void trim(char* line) {
   int len = strlen(line);
-  assert(line[len] == 0);
   while (isspace(line[len-1])) {
     --len;
     line[len] = 0;
@@ -107,7 +114,6 @@ const void readDeals(const char* path) {
   int i = 0;
   while ((linelen = getline(&line, &linecap, f)) > 0) {
     trim(line);
-    assert(i < kMaxLines);
     gDeals[i++] = parseHex128(line);
     printf("Using deal %s -> %s\n", line, asHexString(gDeals[i-1]).c_str());
   }
@@ -123,7 +129,7 @@ void parseArgs(int argc, char** argv) {
     { "deals", required_argument, NULL, 'd'},
     { "min_alts",  required_argument, NULL, 'n' },
     { "max_alts",  required_argument, NULL, 'x' },
-    { "budget",  required_argument, NULL, 't' },
+    { "budget",  required_argument, NULL, 'b' },
     { "help", no_argument, NULL, 'h' },
     { NULL,                       0, NULL,  0  }
   };
@@ -144,14 +150,12 @@ void parseArgs(int argc, char** argv) {
       }
       case 'o':
       {
-        printf("Setting opponent to %s\n", optarg);
-        gOpponent = makePlayer(optarg);
+        gOpponentStr = optarg;
         break;
       }
       case 'c':
       {
-        printf("Setting champion to %s\n", optarg);
-        gChampion = makePlayer(optarg);
+        gChampionStr = optarg;
         break;
       }
       case 'g':
@@ -162,22 +166,16 @@ void parseArgs(int argc, char** argv) {
       case 'x':
       {
         gMaxAlternates = atoi(optarg);
-        assert(gMaxAlternates >= 10);
-        assert(gMaxAlternates <= 1000);
         break;
       }
       case 'n':
       {
         gMinAlternates = atoi(optarg);
-        assert(gMinAlternates >= 5);
-        assert(gMinAlternates <= 100);
         break;
       }
       case 'b':
       {
         gTimeBudget = atof(optarg);
-        assert(gTimeBudget >= 0.005);
-        assert(gTimeBudget <= 1.000);
         break;
       }
       case 'd':
@@ -195,24 +193,16 @@ void parseArgs(int argc, char** argv) {
     }
   }
 
-  assert(gMinAlternates < gMaxAlternates);
-
   printf("min(%u), max(%u), time(%4.2f)\n", gMinAlternates, gMaxAlternates, gTimeBudget);
 
   if (gDeals == 0) {
     randomDeals(1);
   }
 
-  if (!gOpponent) {
-    const char* def = "random";
-    printf("Setting opponent to %s\n", def);
-    gOpponent = makePlayer(def);
-  }
-  if (!gChampion) {
-    const char* def = "simple";
-    printf("Setting champion to %s\n", def);
-    gChampion = makePlayer(def);
-  }
+  printf("Setting champion to %s\n", gChampionStr);
+  gChampion = makePlayer(gChampionStr);
+  printf("Setting opponent to %s\n", gOpponentStr);
+  gOpponent = makePlayer(gOpponentStr);
 }
 
 typedef StrategyPtr Player;
@@ -236,7 +226,6 @@ struct Scores {
   void Accumulate(StrategyPtr players[4], const GameOutcome& outcome) {
     for (int j=0; j<4; ++j) {
       StrategyPtr player = players[j];
-      assert(player==gChampion || player==gOpponent);
       int playerIndex = player == gChampion ? 0 : 1;
       mPlayer[playerIndex] += outcome.modifiedScore(j);
       mPosition[j] += outcome.modifiedScore(j);
@@ -274,7 +263,6 @@ void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, boo
 
   for (int i=0; i<4; ++i) {
     StrategyPtr player = players[i];
-    assert(player==gChampion || player==gOpponent);
     int playerIndex = player == gChampion ? 0 : 1;
     printf("%s=%5.1f ", name[playerIndex], outcome.modifiedScore(i));
   }
