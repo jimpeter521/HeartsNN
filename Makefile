@@ -33,6 +33,10 @@ analyze2: analyze
 analyze3: analyze
 	analyze -d 5c7bd13b420f5774e65cd0b7   # Player 3 either shoots the moon or misses by 1 point
 
+analyze4: analyze
+		analyze -d a5a9d06f5c340ca6ab864fb6 # Second player shoots the moon with strong, but I think stoppable hand
+
+
 validate:
 	buck build :validate
 
