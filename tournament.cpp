@@ -26,8 +26,8 @@ void loadModel(const char* path) {
   }
 }
 
-int gMinAlternates = 19;
-int gMaxAlternates = 20;
+int gMinAlternates = 10;
+int gMaxAlternates = 50;
 float gTimeBudget = 1.0;
 int gNumMatches = 0;
 uint128_t* gDeals = 0;
@@ -40,6 +40,7 @@ StrategyPtr gChampion;
 const char* gModelPath = "./savedmodel";
 
 bool gSaveMoonDeals = true;
+bool gQuiet = false;
 
 AnnotatorPtr kNoAnnotator(0);
 
@@ -78,9 +79,9 @@ void usage() {
     "    -o,--opponent <strategy>   the strategy to use for the `opponent` (default:random)",
     "    -c,--champion <strategy>   the strategy to use for the `champion` (default: simple)",
     "    -d,--deals <dealIndexFile> a file containing deal indexes to play from (default: choose deals at random)",
-    "    -n,--min_alts <int>        the minimum number of alternate simulated games for the `simple` and `dnnmonte` players",
-    "    -x,--max_alts <int>        the maximum number of alternate simulated games for the `simple` and `dnnmonte` players",
-    "    -b,--budget <float>        the time budget in seconds for the `simple` and `dnnmonte` players to use",
+    "    -n,--min_alts <int>        min alternate simulated games for the `simple` and `dnnmonte` players (default:10)",
+    "    -x,--max_alts <int>        max alternate simulated games for the `simple` and `dnnmonte` players (default:50)",
+    "    -b,--budget <float>        the time budget in seconds for the `simple` and `dnnmonte` players to use (default:1.0)",
     "    -h,--help                  print this message",
     0
   };
@@ -130,6 +131,7 @@ void parseArgs(int argc, char** argv) {
     { "min_alts",  required_argument, NULL, 'n' },
     { "max_alts",  required_argument, NULL, 'x' },
     { "budget",  required_argument, NULL, 'b' },
+    { "quiet",  no_argument, NULL, 'q' },
     { "help", no_argument, NULL, 'h' },
     { NULL,                       0, NULL,  0  }
   };
@@ -137,7 +139,7 @@ void parseArgs(int argc, char** argv) {
   while (true) {
 
     int longindex = 0;
-    int ch = getopt_long(argc, argv, "m:g:o:c:d:x:n:b:h", longopts, &longindex);
+    int ch = getopt_long(argc, argv, "m:g:o:c:d:x:n:b:qh", longopts, &longindex);
     if (ch == -1) {
       break;
     }
@@ -182,6 +184,11 @@ void parseArgs(int argc, char** argv) {
       {
         readDeals(optarg);
         gSaveMoonDeals = false;
+        break;
+      }
+      case 'q':
+      {
+        gQuiet = true;
         break;
       }
       case 'h':
@@ -261,17 +268,19 @@ void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, boo
 
   scores.Accumulate(players, outcome);
 
-  for (int i=0; i<4; ++i) {
-    StrategyPtr player = players[i];
-    int playerIndex = player == gChampion ? 0 : 1;
-    printf("%s=%5.1f ", name[playerIndex], outcome.modifiedScore(i));
+  if (!gQuiet) {
+    for (int i=0; i<4; ++i) {
+      StrategyPtr player = players[i];
+      int playerIndex = player == gChampion ? 0 : 1;
+      printf("%s=%5.1f ", name[playerIndex], outcome.modifiedScore(i));
+    }
+    if (moon)
+      printf("  Shot the moon!\n");
+    else if (stopped)
+      printf("  Moon stopped!\n");
+    else
+      printf("\n");
   }
-  if (moon)
-    printf("  Shot the moon!\n");
-  else if (stopped)
-    printf("  Moon stopped!\n");
-  else
-    printf("\n");
 }
 
 void runOneMatch(const uint128_t dealIndex, float playerScores[2]) {
@@ -293,10 +302,12 @@ void runOneMatch(const uint128_t dealIndex, float playerScores[2]) {
 
   int shotMoon = 0;
 
-  std::string asHex = asHexString(dealIndex);
-  printf("%s\n", asHex.c_str());
   Deal deck(dealIndex);
-  deck.printDeal();
+  if (!gQuiet) {
+    std::string asHex = asHexString(dealIndex);
+    printf("%s\n", asHex.c_str());
+    deck.printDeal();
+  }
 
   for (int i=0; i<6; ++i) {
     bool moon;
@@ -305,7 +316,9 @@ void runOneMatch(const uint128_t dealIndex, float playerScores[2]) {
       ++shotMoon;
   }
 
-  matchScores.Summarize();
+  if (!gQuiet) {
+    matchScores.Summarize();
+  }
 
   for (int p=0; p<2; ++p)
     playerScores[p] += matchScores.mPlayer[p];
