@@ -30,12 +30,22 @@ def hidden_layers(input, depth, width, activation):
 
 def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraining=True):
     assert input.shape.dims[-1] == 1
+    input_height = int(input.shape.dims[-3])
     input_features = int(input.shape.dims[-2])
     kernel_size = (ranks, input_features)
+    input_units = input_height * input_features
     strides = (stride, 1)
-    REDUCTION = 1.0 # Output layer will have 80% of the features of the input layer.
-    filters = int(ranks*input_features * REDUCTION)
-    # print(f'Name: {name}, Input features: {input_features}, Output features: {filters}, Kernel size: {kernel_size}')
+
+    kernel_height = ranks
+    assert (input_height-kernel_height) % stride == 0
+    output_height = ((input_height-kernel_height) // stride) + 1
+
+    SCALE = 0.9
+    # With SCALE=1.0, we compute a number of output filters/features that will approximate the number of input features
+    # We typically will want to gradually reduce the number of features in each layer, so use a SCALE a little less than 1.0
+    filters = int(round(SCALE * float(input_height)*float(input_features)/float(output_height)))
+    output_units = output_height * filters
+    # print(f'Name: {name}, input_height: {input_height}, input_units: {input_units}, output_units: {output_units}, Kernel size: {kernel_size}')
     assert filters > 0
     conv = input
     with tf.variable_scope(name):
@@ -54,10 +64,14 @@ def convolution_layers(mainData, activation, isTraining):
         assert num_features == INPUT_FEATURES
         conv = tf.reshape(distribution, [-1, NUM_RANKS, num_features, 1])
 
-        conv = one_conv_layer(conv, ranks=2, stride=1, name='L1_R2_S1', activation=activation, isTraining=isTraining)
-        conv = one_conv_layer(conv, ranks=4, stride=2, name='L2_R4_S2', activation=activation, isTraining=isTraining)
-        conv = one_conv_layer(conv, ranks=3, stride=2, name='L3_R3_S2', activation=activation, isTraining=isTraining)
-        conv = one_conv_layer(conv, ranks=2, stride=1, name='L4_R2_S1', activation=activation, isTraining=isTraining)
+        # We could generalize here and allow stride to be a parameter, but after some experimentation it seems
+        # likely that restricting stride to always be 1 is beneficial.
+        # The set of "ranks" here (actually kernel_height) is probably near optimal so is unlikely to change
+        stride = 1
+        ranks = [2, 3, 4, 5, 3]
+
+        for i, r in enumerate(ranks):
+            conv = one_conv_layer(conv, ranks=r, stride=stride, name=f'L{i+1}_R{r}', activation=activation, isTraining=isTraining)
 
         assert conv.shape.dims[-1] == 1
         num_features = int(conv.shape.dims[-2])
@@ -81,7 +95,6 @@ def activation_fn(name):
         return tf.nn.leaky_relu
     else:
         assert False
-
 
 def model_fn(features, labels, mode, params={}):
     """Model function for Estimator."""
@@ -124,9 +137,14 @@ def model_fn(features, labels, mode, params={}):
     # At least one of the three heads must be enabled
     assert SCORE or TRICK or MOON
 
+    # We have 52 total cards, but only a small subset of them are legal plays.
+    # Any metric that computes a mean by dividing by 52 is a distorted metric.
+    # We should instead compute our own sum and divide by the number of legal plays
+    num_legal = tf.reduce_sum(legalPlays, name='num_legal')
+
     if SCORE:
       with tf.variable_scope(EXPECTED_SCORE):
-          expectedScoreLogits = tf.layers.dense(last_common_layer, CARDS_IN_DECK, name='logits', activation=tf.tanh)
+          expectedScoreLogits = tf.layers.dense(last_common_layer, CARDS_IN_DECK, name='logits')
           expectedScoreLogits = tf.multiply(expectedScoreLogits, legalPlays, name=EXPECTED_SCORE)
           tf.summary.histogram("expectedScoreLogits", expectedScoreLogits)
       outputs_dict[EXPECTED_SCORE] = expectedScoreLogits
@@ -162,28 +180,44 @@ def model_fn(features, labels, mode, params={}):
 
     assert labels is not None
 
+    scalars = {'$$$': tf.constant(mode, dtype=tf.string)}
+
     if SCORE:
       with tf.variable_scope('expected_score_loss'):
           y_expected_score = labels[EXPECTED_SCORE]
-          expected_score_loss = tf.losses.mean_squared_error(y_expected_score, expectedScoreLogits)
+          expected_score_diff = tf.subtract(y_expected_score, expectedScoreLogits)
+          expected_score_diff2 = tf.square(expected_score_diff)
+          expected_score_squared_sum = tf.reduce_sum(expected_score_diff2)
+          expected_score_loss = tf.divide(expected_score_squared_sum, num_legal)
           expected_score_loss = tf.log(expected_score_loss)
-          tf.summary.scalar("expected_score_loss", expected_score_loss)
+          # Finally divide the log by 2 so we are using log of RMSE.
+          expected_score_loss = tf.divide(expected_score_loss, 2.0, name='log_expected_score_loss')
+          tf.summary.scalar('expected_score_loss', expected_score_loss)
+          scalars[EXPECTED_SCORE] = expected_score_loss
 
     if TRICK:
       with tf.variable_scope('win_trick_prob_loss'):
           y_win_trick_prob = labels[WIN_TRICK_PROB]
-          win_trick_prob_loss = tf.losses.mean_squared_error(y_win_trick_prob, winTrickLogits)
+          win_trick_prob_diff = tf.subtract(y_win_trick_prob, winTrickLogits)
+          win_trick_prob_diff2 = tf.square(win_trick_prob_diff)
+          win_trick_prob_squared_sum = tf.reduce_sum(win_trick_prob_diff2)
+          win_trick_prob_loss = tf.divide(win_trick_prob_squared_sum, num_legal)
           win_trick_prob_loss = tf.log(win_trick_prob_loss)
-          tf.summary.scalar("win_trick_prob_loss", win_trick_prob_loss)
+          # Finally divide the log by 2 so we are using log of RMSE.
+          win_trick_prob_loss = tf.divide(win_trick_prob_loss, 2.0, name='log_win_trick_prob_loss')
+          tf.summary.scalar('win_trick_prob_loss', win_trick_prob_loss)
+          scalars[WIN_TRICK_PROB] = win_trick_prob_loss
 
     if MOON:
       with tf.variable_scope('moon_prob_loss'):
           y_moon_prob = tf.reshape(labels[MOON_PROB], (-1, CARDS_IN_DECK, MOON_CLASSES))
-          moon_prob_losses = tf.nn.softmax_cross_entropy_with_logits_v2(labels=tf.stop_gradient(y_moon_prob), logits=moonProbLogits)
-          moon_prob_losses = tf.multiply(moon_prob_losses, legalPlays, 'masked')
-          moon_prob_loss = tf.reduce_mean(moon_prob_losses, name='moon_prob_mean_loss')
-          moon_prob_loss = tf.log(moon_prob_loss)
-          tf.summary.scalar("moon_prob_loss", moon_prob_loss)
+          kldiverg = tf.keras.losses.kullback_leibler_divergence(y_moon_prob, moon_probs)
+          moon_prob_losses = tf.multiply(kldiverg, legalPlays, 'masked')
+          moon_prob_loss = tf.reduce_sum(moon_prob_losses, name='moon_prob_loss_sum')
+          moon_prob_loss = tf.divide(moon_prob_loss, num_legal, name='moon_prob_loss_mean')
+          moon_prob_loss = tf.log(moon_prob_loss, name='log_moon_prob_loss')
+          tf.summary.scalar('moon_prob_loss', moon_prob_loss)
+          scalars[MOON_PROB] = moon_prob_loss
 
     with tf.variable_scope('total_loss'):
         total_loss = 0.0
@@ -194,19 +228,17 @@ def model_fn(features, labels, mode, params={}):
         if MOON:
           total_loss = tf.add(total_loss, moon_prob_loss)
 
+    scalars['total_loss'] = total_loss
     optimizer = tf.train.AdamOptimizer()
     train_op = optimizer.minimize(loss=total_loss, global_step=tf.train.get_global_step())
 
-    eval_metric_ops = {}
+    model_dir_path = params['model_dir_path']
+    assert model_dir_path is not None
 
-    if SCORE:
-      eval_metric_ops['expected_score_loss'] = tf.metrics.mean_squared_error(y_expected_score, expectedScoreLogits)
+    logging_hook = tf.train.LoggingTensorHook(scalars, every_n_iter=1)
 
-    if TRICK:
-      eval_metric_ops['win_trick_prob_loss'] = tf.metrics.mean_squared_error(y_win_trick_prob, winTrickLogits)
-
-    if MOON:
-      eval_metric_ops['moon_prob_loss'] = tf.metrics.mean(moon_prob_loss)
+    summary_hook = tf.train.SummarySaverHook(output_dir= f'{model_dir_path}/eval', save_steps=1,
+        scaffold=tf.train.Scaffold(summary_op=tf.summary.merge_all()))
 
     return tf.estimator.EstimatorSpec(mode=mode, loss=total_loss, train_op=train_op, export_outputs=export_outputs,
-                                        eval_metric_ops=eval_metric_ops)
+                                      evaluation_hooks=[summary_hook, logging_hook])

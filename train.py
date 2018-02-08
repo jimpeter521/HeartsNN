@@ -53,7 +53,6 @@ def load_memmaps(dirPath):
 
     return mainData, scoresData, winTrickProbs, moonProbData
 
-
 # We load all training and validation data into (virtual) RAM by using numpy memmap files.
 # We can fairly easily generate plenty of data and still easily fit it all into RAM on a machine with 32Gb of RAM.
 # The amount of data is much larger than a reasonable batch size.
@@ -74,51 +73,58 @@ def load_memmaps(dirPath):
 # to move on to other improvements.
 
 def get_input_fn(name, memmaps):
-    global BATCH, STEPS
-
     mainData, scoresData, winTrickProbs, moonProbData = memmaps
 
     iterator_initializer_hook = IteratorInitializerHook()
 
     nsamples = len(mainData)
-    samples_this_eval = BATCH * STEPS
-    assert samples_this_eval <= nsamples
-
-    evals = nsamples // samples_this_eval
-
-    eval = get_input_fn._eval[name] % evals
 
     p = get_input_fn._eval['p']
     if p is None:
         get_input_fn._eval['p'] = p = np.random.permutation(nsamples)
 
+    _batch = get_input_fn._eval['batch']
+    _steps = get_input_fn._eval['steps']
+
+    samples_this_eval = _batch * _steps
+    assert samples_this_eval <= nsamples
+
+    evals = nsamples // samples_this_eval
+    eval = get_input_fn._eval[name] % evals
+
     if name == TRAINING and eval == 0:
         get_input_fn._eval['p'] = p = np.random.permutation(nsamples)
+
         if samples_this_eval*4 < nsamples:
             # The usual case here. We can double the batch size and leave STEPS alone
-            BATCH = BATCH*2
-        elif STEPS > 3:
-            # We shouldn't increase BATCH size without changing STEPS, or we'll stop processing up to half the data
-            # This may increase STEPS at first, from say 64 to something less than 128, but it will eventually
+            _batch *= 2
+        elif _steps > 3:
+            # We shouldn't increase batch size without changing steps, or we'll stop processing up to half the data
+            # This may increase steps at first, from say 64 to something less than 128, but it will eventually
             # reduce to 1.
-            BATCH = BATCH*2
-            STEPS = nsamples // BATCH
-            if STEPS <= 1:
-                STEPS = 1
-                BATCH = nsamples
-        if STEPS <= 16:
-            BATCH = nsamples // STEPS
+            _batch *= 2
+            _steps = nsamples // _batch
+            if _steps <= 1:
+                _steps = 1
+                _batch = nsamples
+        if _steps <= 16:
+            _batch = nsamples // _steps
 
-        print(f'********** Bumped batch to {BATCH}, steps to {STEPS}  **********')
+        print(f'********** Bumped batch to {_batch}, steps to {_steps}  **********')
+
+        get_input_fn._eval['batch'] = _batch
+        get_input_fn._eval['steps'] = _steps
         get_input_fn._eval[TRAINING] = 0
         get_input_fn._eval[VALIDATION] = 0
 
     def input_fn():
+        _batch = get_input_fn._eval['batch']
+        _steps = get_input_fn._eval['steps']
 
-        start = get_input_fn._eval[name] * BATCH * STEPS
+        start = get_input_fn._eval[name] * _batch * _steps
         get_input_fn._eval[name] += 1
 
-        batchSize = BATCH if name == TRAINING else BATCH*STEPS
+        batchSize = _batch if name == TRAINING else _batch*_steps
 
         print(f'*** {name} input_fn() here with batch {batchSize} and start {start} ***')
 
@@ -147,12 +153,6 @@ def get_input_fn(name, memmaps):
 
     return input_fn, iterator_initializer_hook
 
-get_input_fn._eval = {
-    TRAINING: 0,
-    VALIDATION: 0,
-    'p': None
-}
-
 def save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn):
     export_dir_base = f'{model_dir_path}/savedmodel'
     os.makedirs(export_dir_base, exist_ok=True)
@@ -160,7 +160,7 @@ def save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn):
     print('Saving checkpoint:', checkpoint, file=sys.stderr)
     estimator.export_savedmodel(export_dir_base, serving_input_receiver_fn, checkpoint_path=checkpoint)
 
-def train_with_params(train_memmaps, eval_memmaps, params):
+def train_with_params(train_memmaps, eval_memmaps, params, init_batch=1024, init_steps=64):
     hidden_depth = params['hidden_depth']
     hidden_width = params['hidden_width']
     activation = params['activation']
@@ -168,7 +168,9 @@ def train_with_params(train_memmaps, eval_memmaps, params):
     model_dir_path = f'{ROOT_MODEL_DIR}/d{hidden_depth}w{hidden_width}r{redundancy}_{activation}'
     os.makedirs(model_dir_path, exist_ok=True)
 
-    config = tf.estimator.RunConfig(keep_checkpoint_max=20)
+    params['model_dir_path'] = model_dir_path
+
+    config = tf.estimator.RunConfig(keep_checkpoint_max=20, save_summary_steps=init_steps)
     estimator = tf.estimator.Estimator(model_fn=model_fn, params=params, model_dir=model_dir_path, config=config)
 
     feature_spec = {
@@ -177,18 +179,24 @@ def train_with_params(train_memmaps, eval_memmaps, params):
     serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     first_backstep_loss = None
-    BACKSTEP_LIMIT = 3
+    BACKSTEP_LIMIT = 5
     backsteps = 0
     best_eval_loss = float('inf')
 
-    global BATCH
-    BATCH = BATCH // 2   # this is a hack to make the algorithm to increase BATCH size simpler.
+    get_input_fn._eval = {
+        TRAINING: 0,
+        VALIDATION: 0,
+        'batch': init_batch // 2,   # convenient to do this here, it will be doubled again the input_fn
+        'steps': init_steps,
+        'p': None
+    }
 
     for epoch in range(0, EPOCHS):
         train_input_fn, train_iterator_initializer_hook = get_input_fn(TRAINING, train_memmaps)
         eval_input_fn, eval_iterator_initializer_hook = get_input_fn(VALIDATION, eval_memmaps)
 
-        estimator.train(train_input_fn, steps=STEPS, hooks=[train_iterator_initializer_hook])
+        _steps = get_input_fn._eval['steps']
+        estimator.train(train_input_fn, steps=_steps, hooks=[train_iterator_initializer_hook])
         evaluation = estimator.evaluate(eval_input_fn, steps=1, hooks=[eval_iterator_initializer_hook])
         print(f'{epoch+1}/{EPOCHS}: Evaluation:', evaluation, file=sys.stderr)
         eval_loss = evaluation['loss']
@@ -232,17 +240,17 @@ if __name__ == '__main__':
     assert len(train_memmaps[0]) <= len(eval_memmaps[0])
 
     evals = {}
-    for hidden_width in [300]:
+    for hidden_width in [200, 220]:
         for hidden_depth in [1]:
-            for activation in ['swish5']:
-                for redundancy in [2]:
+            for activation in ['relu']:
+                for redundancy in [0]:
                     params = {
                         'hidden_depth': hidden_depth,
                         'hidden_width': hidden_width,
                         'activation': activation,
                         'redundancy': redundancy,
                     }
-                    results = train_with_params(train_memmaps, eval_memmaps, params)
+                    results = train_with_params(train_memmaps, eval_memmaps, params, init_batch=BATCH, init_steps=STEPS)
                     evals[f'd{hidden_depth}w{hidden_width}r{redundancy}_{activation}'] = results
 
     for k, v in evals.items():

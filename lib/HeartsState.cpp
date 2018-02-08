@@ -21,6 +21,7 @@ HeartsState::HeartsState(uint128_t dealIndex)
 {
   bzero(mPlays, sizeof(mPlays));
   bzero(mScore, sizeof(mScore));
+  bzero(mPointTricks, sizeof(mPointTricks));
   VerifyHeartsState();
 }
 
@@ -38,6 +39,7 @@ HeartsState::HeartsState(const HeartsState& other)
 {
   memcpy(mPlays, other.mPlays, sizeof(mPlays));
   memcpy(mScore, other.mScore, sizeof(mScore));
+  memcpy(mPointTricks, other.mPointTricks, sizeof(mPointTricks));
   VerifyHeartsState();
 }
 
@@ -130,35 +132,17 @@ unsigned HeartsState::GetScoreFor(unsigned player) const
 
 void HeartsState::AddToScoreFor(unsigned player, unsigned score)
 {
-  mScore[player] += score;
+  if (score) {
+    mScore[player] += score;
+    mPointTricks[player] += 1;
+  }
 }
 
-void HeartsState::CheckForShootTheMoon(float scores[4], bool &shotTheMoon)
+GameOutcome HeartsState::CheckForShootTheMoon()
 {
-  const unsigned kExpectedTotal = 26u;
-
-  unsigned total = 0;
-  shotTheMoon = true;  // assume the unlikely until proven wrong
-  for (int i=0; i<4; i++)
-  {
-    total += mScore[i];
-    if (mScore[i]!=0 && mScore[i]!=kExpectedTotal)
-      shotTheMoon = false;
-  }
-  assert(total == kExpectedTotal);
-  if (shotTheMoon)
-  {
-    for (int i=0; i<4; i++) {
-      mScore[i] = kExpectedTotal - mScore[i];
-      scores[i] = mScore[i] - 19.5;
-    }
-  }
-  else
-  {
-    for (int i=0; i<4; i++) {
-      scores[i] = mScore[i] - 6.5;
-    }
-  }
+  GameOutcome outcome;
+  outcome.Set(mPointTricks, mScore);
+  return outcome;
 }
 
 void HeartsState::RemoveUnplayedCard(Card card)

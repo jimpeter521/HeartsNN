@@ -11,7 +11,7 @@ Annotator::Annotator()
 
 void Annotator::On_DnnMonteCarlo_choosePlay(const KnowableState& state
                                   , PossibilityAnalyzer* analyzer
-                                  , const float expectedScore[13], const float moonProb[13][3])
+                                  , const float expectedScore[13], const float moonProb[13][5])
 {
   assert(false);
 }
@@ -22,7 +22,7 @@ void Annotator::OnGameStateBeforePlay(const GameState& state)
 }
 
 void Annotator::OnWriteData(const KnowableState& state, PossibilityAnalyzer* analyzer, const float expectedScore[13]
-                          , const float moonProb[13][3], const float winsTrickProb[13])
+                          , const float moonProb[13][5], const float winsTrickProb[13])
 {
   assert(false);
 }

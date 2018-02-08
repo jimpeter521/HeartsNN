@@ -81,7 +81,10 @@ def parsePointsSoFar(f):
 def parseUnplayed(f):
     line = readLine(f)
     parts = line.split()
-    card = parseCard(parts[0])
+    try:
+        card = parseCard(parts[0])
+    except:
+        print('Bad line:', line)
     probs = [float(f) for f in parts[1:]]
     return (card, probs)
 
@@ -103,7 +106,9 @@ def parseDistribution(f, remaining):
 def parseExpectedOutput(f):
     line = readLine(f)
     parts = line.split()
-    assert len(parts) == 7
+    if len(parts) != MOON_CLASSES + 4:
+        print('Bad line:', line)
+    assert len(parts) == MOON_CLASSES + 4
     card = parseCard(parts[0])
     expected = float(parts[1])
     winTrickProb = float(parts[2])
@@ -183,14 +188,14 @@ def expandDistribution(distribution):
 def expandExpectedOutputs(state):
     scores = [0.0 for _ in range(CARDS_IN_DECK)]
     winTrickProbs = [0.0 for _ in range(CARDS_IN_DECK)]
-    illegalPlay = [0.0, 0.0, 1.0]
+    illegalPlay = [0.0, 0.0, 0.0, 0.0, 1.0]
     moonProbs = [illegalPlay for _ in range(CARDS_IN_DECK)]
     for row in state['expectedOutputs']:
         card, expected, winTrickProb, moonProb = row
         # Scale expected scores from range [-19.5, 18.5] to [-1.0, 0.94]
         scores[card] = float(expected) / 19.5
         winTrickProbs[card] = winTrickProb
-        moonProbs[card] = [moonProb[0], moonProb[1], moonProb[2]]
+        moonProbs[card] = moonProb
     scores = np.array(scores, np.float32)
     assert scores.shape == (CARDS_IN_DECK,)
     winTrickProbs = np.array(winTrickProbs, np.float32)

@@ -55,4 +55,4 @@ if __name__ == '__main__':
         doOneSet('training', globExpr, outDatasetName)
         doOneSet('validation', globExpr, outDatasetName)
     else:
-        doOneSet(purpose, globExpr, dataset)
+        doOneSet(purpose, globExpr, outDatasetName)

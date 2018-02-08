@@ -3,6 +3,7 @@
 #include "lib/Card.h"
 #include "lib/VoidBits.h"
 #include "lib/CardArray.h"
+#include "lib/GameOutcome.h"
 
 // HeartsState is an abstract base class, for implementation classes KnowableState and GameState.
 // HeartsState should only contain "knowable" information, i.e. information that any of the 4 players
@@ -57,7 +58,7 @@ public:
   // Player Score tracking
   unsigned GetScoreFor(unsigned player) const;
   void AddToScoreFor(unsigned player, unsigned score);
-  void CheckForShootTheMoon(float scores[4], bool &shotTheMoon);
+  GameOutcome CheckForShootTheMoon();
 
   // Known voids
   // bool areAnyPlayersKnownVoid() const { return mIsVoidBits.areAnyPlayersKnownVoid(); }
@@ -94,7 +95,15 @@ private:
   Suit mTrickSuit;
   unsigned mPointsPlayed;
   Card mPlays[4];
+
   unsigned mScore[4];
+    // This is the number of points the player has won so far 0..26
+
+  unsigned mPointTricks[4];
+    // This is the number of tricks that the player won in which points were taken.
+    // When a player shoots the moon, three of the four slots will be 0.
+    // When a player nearly shot the moon but was stopped, two will be zero, one will be 1 (and other will be >1).
+
   VoidBits mIsVoidBits;
   CardDeck mUnplayedCards;
 
