@@ -299,15 +299,12 @@ tensorflow::Tensor KnowableState::Transform() const
   }
   index = 52*5; // we didn't advance index above, so must set it here.
 
-  // The 6th column is 'can card take trick?'
-  // It is a subset of legal plays. It is 1 if the card is a legal play and is not ruled out for taking the current trick
+  // The 6th column is 'high card on table'
+  // It is 1 if the card is is on the table and current the high card in the trick suit.
+  // This column is all zeros when current player is leading the trick.
 
-  {
-    CardHand::iterator it(choices);
-    while (!it.done()) {
-      Card card = it.next();
-      matrix(0, index+card) = oneIfTrue(MightCardTakeTrick(card));
-    }
+  if (PlayInTrick() != 0) {
+    matrix(0, index+HighCardOnTable()) = 1.0;
   }
   index = 52*6; // we didn't advance index above, so must set it here.
 
