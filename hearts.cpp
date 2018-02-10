@@ -52,7 +52,10 @@ void run(int iterations) {
   StrategyPtr intuition = getIntuition();
 
   // The `player` uses monte carlo and will generate data
-  StrategyPtr player(new MonteCarlo(intuition, annotator, gModelPath!=0 ? 50 : 2000));
+  const uint32_t kMinAlternates = 30;
+  const uint32_t kMaxAlternates = gModelPath!=0 ? 50 : 2000;
+  const float kTimeBudget = 0.25;
+  StrategyPtr player(new MonteCarlo(intuition, kMinAlternates, kMaxAlternates, kTimeBudget, annotator));
 
   // Each of the three opponents will use intuition only and not write data.
   StrategyPtr opponent(intuition);
