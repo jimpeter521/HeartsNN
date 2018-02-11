@@ -160,7 +160,7 @@ def save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn):
     print('Saving checkpoint:', checkpoint, file=sys.stderr)
     estimator.export_savedmodel(export_dir_base, serving_input_receiver_fn, checkpoint_path=checkpoint)
 
-def train_with_params(train_memmaps, eval_memmaps, params, init_batch=1024, init_steps=64):
+def train_with_params(train_memmaps, eval_memmaps, params, serving_input_receiver_fn=None, init_batch=1024, init_steps=64):
     hidden_depth = params['hidden_depth']
     hidden_width = params['hidden_width']
     activation = params['activation']
@@ -172,11 +172,6 @@ def train_with_params(train_memmaps, eval_memmaps, params, init_batch=1024, init
 
     config = tf.estimator.RunConfig(keep_checkpoint_max=20, save_summary_steps=init_steps)
     estimator = tf.estimator.Estimator(model_fn=model_fn, params=params, model_dir=model_dir_path, config=config)
-
-    feature_spec = {
-        MAIN_DATA: tf.placeholder(dtype=np.float32, shape=batchShape(MAIN_INPUT_SHAPE), name=MAIN_DATA),
-    }
-    serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     first_backstep_loss = None
     BACKSTEP_LIMIT = 5
@@ -239,8 +234,13 @@ if __name__ == '__main__':
         train_memmaps, eval_memmaps = eval_memmaps, train_memmaps
     assert len(train_memmaps[0]) <= len(eval_memmaps[0])
 
+    feature_spec = {
+        MAIN_DATA: tf.placeholder(dtype=np.float32, shape=batchShape(MAIN_INPUT_SHAPE), name=MAIN_DATA),
+    }
+    serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
+
     evals = {}
-    for hidden_width in [200, 220]:
+    for hidden_width in range(100,200,10):
         for hidden_depth in [1]:
             for activation in ['relu']:
                 for redundancy in [0]:
@@ -250,7 +250,7 @@ if __name__ == '__main__':
                         'activation': activation,
                         'redundancy': redundancy,
                     }
-                    results = train_with_params(train_memmaps, eval_memmaps, params, init_batch=BATCH, init_steps=STEPS)
+                    results = train_with_params(train_memmaps, eval_memmaps, params, serving_input_receiver_fn=serving_input_receiver_fn, init_batch=BATCH, init_steps=STEPS)
                     evals[f'd{hidden_depth}w{hidden_width}r{redundancy}_{activation}'] = results
 
     for k, v in evals.items():
