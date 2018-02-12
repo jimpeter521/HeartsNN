@@ -91,6 +91,8 @@ def activation_fn(name):
         return lambda x: swish(x, beta=1.0)
     elif name == 'relu':
         return tf.nn.relu
+    elif name == 'elu':
+        return tf.nn.elu
     elif name == 'leaky':
         return tf.nn.leaky_relu
     else:
