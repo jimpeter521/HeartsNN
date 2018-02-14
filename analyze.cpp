@@ -37,7 +37,7 @@ StrategyPtr makePlayer(const char* arg) {
   }
   else if (std::string(arg) == std::string("simple")) {
     StrategyPtr intuition = StrategyPtr(new RandomStrategy());
-    player = StrategyPtr(new MonteCarlo(intuition));
+    player = StrategyPtr(new MonteCarlo(intuition, 50, 1000, 0.1));
   }
   else {
     SessionOptions session_options;
@@ -49,7 +49,7 @@ StrategyPtr makePlayer(const char* arg) {
     }
     StrategyPtr intuition = StrategyPtr(new DnnModelIntuition(gModel));
     AnnotatorPtr annotator(new DnnMonteCarloAnnotator(gModel));
-    player = StrategyPtr(new MonteCarlo(intuition, annotator));
+    player = StrategyPtr(new MonteCarlo(intuition, 50, 1000, 0.1, annotator));
   }
   return player;
 }
