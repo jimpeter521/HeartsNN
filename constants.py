@@ -61,13 +61,13 @@ def env_val(name) :
         s_val = os.environ[name]
         m = number_re.match(s_val)
         if not m:
-            raise ValueError(f'Env var {name} must be integer with optional K or M suffix, given: {name}')
+            raise ValueError('Env var {} must be integer with optional K or M suffix, given: {}'.format(name, s_val))
         val = int(m.group(1))
         if m.group(2) == 'K':
             val *= 1024
         elif m.group(2) == 'M':
             val *= 1024*1024
-        print(f'Set {name} to {val}')
+        print('Set {} to {}'.format(name, val))
     else:
         val = default_vals[name]
     return val

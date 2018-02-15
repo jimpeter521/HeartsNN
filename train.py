@@ -39,17 +39,17 @@ def load_memmap(filePath, rowShape):
     return data
 
 def load_memmaps(dirPath):
-    mainData = load_memmap(f'{dirPath}/main_data.np.mmap', MAIN_INPUT_SHAPE)
-    scoresData = load_memmap(f'{dirPath}/scores_data.np.mmap', SCORES_SHAPE)
-    winTrickProbs = load_memmap(f'{dirPath}/win_trick_data.np.mmap', WIN_TRICK_PROBS_SHAPE)
-    moonProbData = load_memmap(f'{dirPath}/moon_data.np.mmap', MOONPROBS_SHAPE)
+    mainData = load_memmap(dirPath + '/main_data.np.mmap', MAIN_INPUT_SHAPE)
+    scoresData = load_memmap(dirPath + '/scores_data.np.mmap', SCORES_SHAPE)
+    winTrickProbs = load_memmap(dirPath + '/win_trick_data.np.mmap', WIN_TRICK_PROBS_SHAPE)
+    moonProbData = load_memmap(dirPath + '/moon_data.np.mmap', MOONPROBS_SHAPE)
 
     nsamples = len(mainData)
     assert len(scoresData) == nsamples
     assert len(winTrickProbs) == nsamples
     assert len(moonProbData) == nsamples
 
-    print(f'Loaded {nsamples} samples')
+    print('Loaded {} samples'.format(nsamples))
 
     return mainData, scoresData, winTrickProbs, moonProbData
 
@@ -110,7 +110,7 @@ def get_input_fn(name, memmaps):
         if _steps <= 16:
             _batch = nsamples // _steps
 
-        print(f'********** Bumped batch to {_batch}, steps to {_steps}  **********')
+        print('********** Bumped batch to {}, steps to {}  **********'.format(_batch, _steps))
 
         get_input_fn._eval['batch'] = _batch
         get_input_fn._eval['steps'] = _steps
@@ -126,7 +126,7 @@ def get_input_fn(name, memmaps):
 
         batchSize = _batch if name == TRAINING else _batch*_steps
 
-        print(f'*** {name} input_fn() here with batch {batchSize} and start {start} ***')
+        print('*** {} input_fn() here with batch {} and start {} ***'.format(name, batchSize, start))
 
         with tf.variable_scope('input_fn'):
             main_data_placeholder = tf.placeholder(tf.float32, batchShape(MAIN_INPUT_SHAPE), name=MAIN_DATA)
@@ -154,7 +154,7 @@ def get_input_fn(name, memmaps):
     return input_fn, iterator_initializer_hook
 
 def save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn):
-    export_dir_base = f'{model_dir_path}/savedmodel'
+    export_dir_base = model_dir_path + '/savedmodel'
     os.makedirs(export_dir_base, exist_ok=True)
     checkpoint = estimator.latest_checkpoint()
     print('Saving checkpoint:', checkpoint, file=sys.stderr)
@@ -165,7 +165,7 @@ def train_with_params(train_memmaps, eval_memmaps, params, serving_input_receive
     hidden_width = params['hidden_width']
     activation = params['activation']
 
-    model_dir_path = f'{ROOT_MODEL_DIR}/d{hidden_depth}w{hidden_width}r{redundancy}_{activation}'
+    model_dir_path = '{}/d{}w{}r{}_{}'.format(ROOT_MODEL_DIR, hidden_depth, hidden_width, redundancy, activation)
     os.makedirs(model_dir_path, exist_ok=True)
 
     params['model_dir_path'] = model_dir_path
@@ -193,13 +193,13 @@ def train_with_params(train_memmaps, eval_memmaps, params, serving_input_receive
         _steps = get_input_fn._eval['steps']
         estimator.train(train_input_fn, steps=_steps, hooks=[train_iterator_initializer_hook])
         evaluation = estimator.evaluate(eval_input_fn, steps=1, hooks=[eval_iterator_initializer_hook])
-        print(f'{epoch+1}/{EPOCHS}: Evaluation:', evaluation, file=sys.stderr)
+        print('{}/{}: Evaluation: {}'.format(epoch+1, EPOCHS, evaluation), file=sys.stderr)
         eval_loss = evaluation['loss']
         if best_eval_loss > eval_loss:
             best_eval_loss = eval_loss
             best_eval = evaluation
             if backsteps > 0:
-                print(f'Recovered from backstep with new best loss:{best_eval_loss}', file=sys.stderr)
+                print('Recovered from backstep with new best loss:{}'.format(best_eval_loss), file=sys.stderr)
                 backsteps = 0
             save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn)
         elif backsteps < BACKSTEP_LIMIT:
@@ -223,8 +223,8 @@ if __name__ == '__main__':
 
     dataDir = 'xx.m' if len(sys.argv)==1 else sys.argv[1]
 
-    train_dir = f'training/{dataDir}'
-    eval_dir = f'validation/{dataDir}'
+    train_dir = 'training/' + dataDir
+    eval_dir = 'validation/' + dataDir
 
     train_memmaps = load_memmaps(train_dir)
     eval_memmaps = load_memmaps(eval_dir)
@@ -251,7 +251,7 @@ if __name__ == '__main__':
                         'redundancy': redundancy,
                     }
                     results = train_with_params(train_memmaps, eval_memmaps, params, serving_input_receiver_fn=serving_input_receiver_fn, init_batch=BATCH, init_steps=STEPS)
-                    evals[f'd{hidden_depth}w{hidden_width}r{redundancy}_{activation}'] = results
+                    evals['d{}w{}r{}_{}'.format(hidden_depth, hidden_width, redundancy, activation)] = results
 
     for k, v in evals.items():
         print(v, k, file=sys.stderr)

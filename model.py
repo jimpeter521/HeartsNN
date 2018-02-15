@@ -24,7 +24,7 @@ def extract_distribution(mainData):
 def hidden_layers(input, depth, width, activation):
     output = input
     for i in range(depth):
-        with tf.variable_scope(f'hidden_{i}'):
+        with tf.variable_scope('hidden_{}'.format(i)):
             output = tf.layers.dense(output, width, activation=activation)
     return output
 
@@ -71,7 +71,7 @@ def convolution_layers(mainData, activation, isTraining):
         ranks = [2, 3, 4, 5, 3]
 
         for i, r in enumerate(ranks):
-            conv = one_conv_layer(conv, ranks=r, stride=stride, name=f'L{i+1}_R{r}', activation=activation, isTraining=isTraining)
+            conv = one_conv_layer(conv, ranks=r, stride=stride, name='L{}_R{}'.format(i+1, r), activation=activation, isTraining=isTraining)
 
         assert conv.shape.dims[-1] == 1
         num_features = int(conv.shape.dims[-2])
@@ -239,7 +239,7 @@ def model_fn(features, labels, mode, params={}):
 
     logging_hook = tf.train.LoggingTensorHook(scalars, every_n_iter=1)
 
-    summary_hook = tf.train.SummarySaverHook(output_dir= f'{model_dir_path}/eval', save_steps=1,
+    summary_hook = tf.train.SummarySaverHook(output_dir= model_dir_path + '/eval', save_steps=1,
         scaffold=tf.train.Scaffold(summary_op=tf.summary.merge_all()))
 
     return tf.estimator.EstimatorSpec(mode=mode, loss=total_loss, train_op=train_op, export_outputs=export_outputs,
