@@ -43,6 +43,7 @@ default_vals = {
     'DECK_EPOCHS': 100,   # This is really "EVALS", not "EPOCHS", since we typically evalutate multiple times per epoch
     'DECK_BATCH': 1*1024, # Batch size should start low, as we will automically double it each true epoch
     'DECK_STEPS': 64,     # batch steps per evaluation checkpoint
+    'DECK_MAX_BATCH': 1024*1024,
 
     # These three are really booleans. Use 0 for False, 1 for True
     'DECK_SCORE': 1,
@@ -73,6 +74,7 @@ def env_val(name) :
     return val
 
 BATCH = env_val('DECK_BATCH')
+MAX_BATCH = env_val('DECK_MAX_BATCH')
 STEPS = env_val('DECK_STEPS')
 EPOCHS = env_val('DECK_EPOCHS')
 SCORE = env_val('DECK_SCORE') == 1

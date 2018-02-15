@@ -95,20 +95,24 @@ def get_input_fn(name, memmaps):
     if name == TRAINING and eval == 0:
         get_input_fn._eval['p'] = p = np.random.permutation(nsamples)
 
-        if samples_this_eval*4 < nsamples:
-            # The usual case here. We can double the batch size and leave STEPS alone
-            _batch *= 2
-        elif _steps > 3:
-            # We shouldn't increase batch size without changing steps, or we'll stop processing up to half the data
-            # This may increase steps at first, from say 64 to something less than 128, but it will eventually
-            # reduce to 1.
-            _batch *= 2
+        if _batch*2 >= MAX_BATCH:
+            _batch = MAX_BATCH
             _steps = nsamples // _batch
-            if _steps <= 1:
-                _steps = 1
-                _batch = nsamples
-        if _steps <= 16:
-            _batch = nsamples // _steps
+        else:
+            if samples_this_eval*4 < nsamples:
+                # The usual case here. We can double the batch size and leave STEPS alone
+                _batch *= 2
+            elif _steps > 3:
+                # We shouldn't increase batch size without changing steps, or we'll stop processing up to half the data
+                # This may increase steps at first, from say 64 to something less than 128, but it will eventually
+                # reduce to 1.
+                _batch *= 2
+                _steps = nsamples // _batch
+                if _steps <= 1:
+                    _steps = 1
+                    _batch = nsamples
+            if _steps <= 16:
+                _batch = nsamples // _steps
 
         print('********** Bumped batch to {}, steps to {}  **********'.format(_batch, _steps))
 
