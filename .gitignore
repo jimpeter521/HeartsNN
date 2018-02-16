@@ -1,3 +1,12 @@
+# We use CMake with Ninja, and can generate either debug or release builds
+debug/
+release/
+
+# These are CMake artifacts that need not be checked in.
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
 dot/
 data/
 *archive/
