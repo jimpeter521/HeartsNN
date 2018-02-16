@@ -203,7 +203,7 @@ CardHand HeartsState::LegalPlays() const
     choices = hand.CardsWithSuit(trickSuit);
   }
 
-  // Both of the two paths could have resulted in in legal choices. When that happens, all cards in hand are legal.
+  // Both of the two paths could have resulted in no legal choices. When that happens, all cards in hand are legal.
   if (choices.Size() == 0)
     choices = hand;
 
