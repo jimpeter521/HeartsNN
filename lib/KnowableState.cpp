@@ -299,15 +299,12 @@ tensorflow::Tensor KnowableState::Transform() const
   }
   index = 52*5; // we didn't advance index above, so must set it here.
 
-  // The 6th column is 'can card take trick?'
-  // It is a subset of legal plays. It is 1 if the card is a legal play and is not ruled out for taking the current trick
+  // The 6th column is 'high card on table'
+  // It is 1 if the card is is on the table and current the high card in the trick suit.
+  // This column is all zeros when current player is leading the trick.
 
-  {
-    CardHand::iterator it(choices);
-    while (!it.done()) {
-      Card card = it.next();
-      matrix(0, index+card) = oneIfTrue(MightCardTakeTrick(card));
-    }
+  if (PlayInTrick() != 0) {
+    matrix(0, index+HighCardOnTable()) = 1.0;
   }
   index = 52*6; // we didn't advance index above, so must set it here.
 
@@ -400,7 +397,7 @@ Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, tensorflo
   using namespace tensorflow;
 
   std::vector<Tensor> outputs;
-  auto result = model.session->Run({{"main_data_1:0", mainData}}, {"expected_score/expected_score:0"}, {}, &outputs);
+  auto result = model.session->Run({{"main_data:0", mainData}}, {"expected_score/expected_score:0"}, {}, &outputs);
   if (!result.ok()) {
     printf("Tensorflow prediction failed: %s\n", result.error_message().c_str());
     exit(1);

@@ -43,6 +43,7 @@ default_vals = {
     'DECK_EPOCHS': 100,   # This is really "EVALS", not "EPOCHS", since we typically evalutate multiple times per epoch
     'DECK_BATCH': 1*1024, # Batch size should start low, as we will automically double it each true epoch
     'DECK_STEPS': 64,     # batch steps per evaluation checkpoint
+    'DECK_MAX_BATCH': 1024*1024,
 
     # These three are really booleans. Use 0 for False, 1 for True
     'DECK_SCORE': 1,
@@ -61,18 +62,19 @@ def env_val(name) :
         s_val = os.environ[name]
         m = number_re.match(s_val)
         if not m:
-            raise ValueError(f'Env var {name} must be integer with optional K or M suffix, given: {name}')
+            raise ValueError('Env var {} must be integer with optional K or M suffix, given: {}'.format(name, s_val))
         val = int(m.group(1))
         if m.group(2) == 'K':
             val *= 1024
         elif m.group(2) == 'M':
             val *= 1024*1024
-        print(f'Set {name} to {val}')
+        print('Set {} to {}'.format(name, val))
     else:
         val = default_vals[name]
     return val
 
 BATCH = env_val('DECK_BATCH')
+MAX_BATCH = env_val('DECK_MAX_BATCH')
 STEPS = env_val('DECK_STEPS')
 EPOCHS = env_val('DECK_EPOCHS')
 SCORE = env_val('DECK_SCORE') == 1

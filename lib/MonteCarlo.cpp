@@ -29,7 +29,7 @@ MonteCarlo::MonteCarlo(const StrategyPtr& intuition
 , kTimeBudget(timeBudget)
 {
   assert(4 < kMinAlternates);
-  assert(kMinAlternates < kMaxAlterates);
+  assert(kMinAlternates <= kMaxAlternates);
   assert(kMaxAlternates <= 2000);
   assert(0.05 <= timeBudget);
   assert(timeBudget <= 1.0);
