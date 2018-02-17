@@ -2,6 +2,7 @@
 
 #include "lib/Strategy.h"
 #include "lib/CardArray.h"
+#include "lib/Predictor.h"
 
 #include <tensorflow/cc/saved_model/loader.h>
 
@@ -19,5 +20,5 @@ public:
   virtual Card choosePlay(const KnowableState& state) const;
 
 private:
-  const tensorflow::SavedModelBundle& mModel;
+  Predictor* mPredictor;
 };

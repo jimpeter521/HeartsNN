@@ -19,13 +19,17 @@ using namespace tensorflow;
 DnnModelIntuition::~DnnModelIntuition() {}
 
 DnnModelIntuition::DnnModelIntuition(const tensorflow::SavedModelBundle& model)
-: mModel(model)
+: mPredictor(new SynchronousPredictor(model))
 {
 }
 
 Card DnnModelIntuition::choosePlay(const KnowableState& state) const
 {
+  tensorflow::Tensor mainData = state.Transform();
+
+  std::vector<tensorflow::Tensor> outputs;
+  mPredictor->Predict(mainData, outputs);
+
   float playExpectedValue[13];
-  Card bestCard = state.TransformAndPredict(mModel, playExpectedValue);
-  return bestCard;
+  return state.ParsePrediction(outputs, playExpectedValue);
 }

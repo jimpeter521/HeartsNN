@@ -27,5 +27,7 @@ class SynchronousPredictor : public Predictor
 public:
   virtual ~SynchronousPredictor();
 
+  SynchronousPredictor(const tensorflow::SavedModelBundle& model, const std::vector<std::string> output_tensor_names = {});
+
   virtual void Predict(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& outputs) const;
 };

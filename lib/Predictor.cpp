@@ -25,6 +25,11 @@ Predictor::Predictor(const tensorflow::SavedModelBundle& model, const std::vecto
 SynchronousPredictor::~SynchronousPredictor()
 {}
 
+SynchronousPredictor::SynchronousPredictor(const tensorflow::SavedModelBundle& model, const std::vector<std::string> output_tensor_names)
+: Predictor(model)
+{
+}
+
 void SynchronousPredictor::Predict(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& outputs) const
 {
   auto result = mModel.session->Run({{"main_data:0", mainData}}, mOutTensorNames, {}, &outputs);

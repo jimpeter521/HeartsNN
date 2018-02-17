@@ -44,6 +44,8 @@ public:
 
   Card TransformAndPredict(const tensorflow::SavedModelBundle& model, float playExpectedValue[13]) const;
 
+  Card ParsePrediction(const std::vector<tensorflow::Tensor>& outputs, float playExpectedValue[13]) const;
+
   struct ExtraFeatures {
     float mPlayProgress;
     float mTricksProgess;

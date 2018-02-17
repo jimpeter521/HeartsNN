@@ -391,18 +391,9 @@ Card KnowableState::TransformAndPredict(const tensorflow::SavedModelBundle& mode
   return Predict(model, mainData, playExpectedValue);
 }
 
-Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, const tensorflow::Tensor& mainData, float playExpectedValue[13]) const
+Card KnowableState::ParsePrediction(const std::vector<tensorflow::Tensor>& outputs, float playExpectedValue[13]) const
 {
-  using namespace std;
   using namespace tensorflow;
-
-  std::vector<Tensor> outputs;
-  auto result = model.session->Run({{"main_data:0", mainData}}, {"expected_score/expected_score:0"}, {}, &outputs);
-  if (!result.ok()) {
-    printf("Tensorflow prediction failed: %s\n", result.error_message().c_str());
-    exit(1);
-  }
-
   Tensor prediction = outputs.at(0);
   assert(prediction.dims() == 2);
   assert(prediction.NumElements() == 52);
@@ -424,6 +415,21 @@ Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, const ten
   }
 
   return bestCard;
+}
+
+Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, const tensorflow::Tensor& mainData, float playExpectedValue[13]) const
+{
+  using namespace std;
+  using namespace tensorflow;
+
+  std::vector<Tensor> outputs;
+  auto result = model.session->Run({{"main_data:0", mainData}}, {"expected_score/expected_score:0"}, {}, &outputs);
+  if (!result.ok()) {
+    printf("Tensorflow prediction failed: %s\n", result.error_message().c_str());
+    exit(1);
+  }
+
+  return ParsePrediction(outputs, playExpectedValue);
 }
 
 static void Print5(FILE* out, float data[4]) {
