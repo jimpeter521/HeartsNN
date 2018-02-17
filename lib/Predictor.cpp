@@ -12,21 +12,20 @@ namespace {
   }
 }
 
+// --- Predictor ---
+
 Predictor::~Predictor()
 {}
 
-Predictor::Predictor(const tensorflow::SavedModelBundle& model, const std::vector<std::string> output_tensor_names)
-: mModel(model)
-, mOutTensorNames(out_tensor_names(output_tensor_names))
-{
-}
-
+// --- SynchronousPredictor ---
 
 SynchronousPredictor::~SynchronousPredictor()
 {}
 
 SynchronousPredictor::SynchronousPredictor(const tensorflow::SavedModelBundle& model, const std::vector<std::string> output_tensor_names)
-: Predictor(model)
+: Predictor()
+, mModel(model)
+, mOutTensorNames(out_tensor_names(output_tensor_names))
 {
 }
 
@@ -37,4 +36,19 @@ void SynchronousPredictor::Predict(const tensorflow::Tensor& mainData, std::vect
     printf("Tensorflow prediction failed: %s\n", result.error_message().c_str());
     exit(1);
   }
+}
+
+// --- PooledPredictor ---
+
+PooledPredictor::~PooledPredictor()
+{}
+
+PooledPredictor::PooledPredictor(const tensorflow::SavedModelBundle& model, const std::vector<std::string> output_tensor_names)
+: mImplPredictor(new SynchronousPredictor(model, output_tensor_names))
+{
+}
+
+void PooledPredictor::Predict(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& outputs) const
+{
+  return mImplPredictor->Predict(mainData, outputs);
 }

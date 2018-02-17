@@ -19,7 +19,7 @@ using namespace tensorflow;
 DnnModelIntuition::~DnnModelIntuition() {}
 
 DnnModelIntuition::DnnModelIntuition(const tensorflow::SavedModelBundle& model)
-: mPredictor(new SynchronousPredictor(model))
+: mPredictor(new PooledPredictor(model))
 {
 }
 

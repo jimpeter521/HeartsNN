@@ -12,14 +12,8 @@ class Predictor
 {
 public:
   virtual ~Predictor();
-
-  Predictor(const tensorflow::SavedModelBundle& model, const std::vector<std::string> output_tensor_names = {});
-
+  Predictor() {}
   virtual void Predict(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& outputs) const = 0;
-
-protected:
-  const tensorflow::SavedModelBundle& mModel;
-  const std::vector<std::string> mOutTensorNames;
 };
 
 class SynchronousPredictor : public Predictor
@@ -30,4 +24,21 @@ public:
   SynchronousPredictor(const tensorflow::SavedModelBundle& model, const std::vector<std::string> output_tensor_names = {});
 
   virtual void Predict(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& outputs) const;
+
+protected:
+  const tensorflow::SavedModelBundle& mModel;
+  const std::vector<std::string> mOutTensorNames;
+};
+
+class PooledPredictor : public Predictor
+{
+public:
+  virtual ~PooledPredictor();
+
+  PooledPredictor(const tensorflow::SavedModelBundle& model, const std::vector<std::string> output_tensor_names = {});
+
+  virtual void Predict(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& outputs) const;
+
+private:
+  SynchronousPredictor* mImplPredictor;
 };
