@@ -391,7 +391,7 @@ Card KnowableState::TransformAndPredict(const tensorflow::SavedModelBundle& mode
   return Predict(model, mainData, playExpectedValue);
 }
 
-Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, tensorflow::Tensor mainData, float playExpectedValue[13]) const
+Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, const tensorflow::Tensor& mainData, float playExpectedValue[13]) const
 {
   using namespace std;
   using namespace tensorflow;

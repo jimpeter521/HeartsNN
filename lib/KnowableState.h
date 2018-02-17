@@ -39,7 +39,7 @@ public:
   tensorflow::Tensor Transform() const;
     // Transform this state into the the `mainData` tensor input for predict.
 
-  Card Predict(const tensorflow::SavedModelBundle& model, tensorflow::Tensor mainData, float playExpectedValue[13]) const;
+  Card Predict(const tensorflow::SavedModelBundle& model, const tensorflow::Tensor& mainData, float playExpectedValue[13]) const;
     // Run tensorflow prediction given the model and tensor input.
 
   Card TransformAndPredict(const tensorflow::SavedModelBundle& model, float playExpectedValue[13]) const;
