@@ -1,46 +1,55 @@
 .PHONY: hearts deal build test disttest analyze all analyze1 analyze2
 
-hearts:
-	buck run :hearts
+debug:
+	mkdir -p debug
 
-opt:
-	buck run @mode/opt :hearts
+debug/build.ninja: debug
+	cd debug && cmake -GNinja -DCMAKE_BUILD_TYPE=Debug ..
 
-deal:
-	buck run :deal
+release:
+	mkdir -p release
 
-tournament:
-	buck run @mode/opt :tournament
+release/build.ninja: release
+	cd release && cmake -GNinja -DCMAKE_BUILD_TYPE=Release ..
 
-analyze:
-	buck build :analyze
+hearts: debug/build.ninja
+	cd debug && ninja
+	./debug/hearts
 
-build:
-	buck build --show_progress :all
+opt: release/build.ninja
+	cd release && ninja
+	./release/hearts
 
-test:
-	buck test
+deal: debug/build.ninja
+	cd debug && ninja
+	./debug/deal
 
-disttest:
-	buck run :disttest
+tournament: release/build.ninja
+	cd release && ninja
+	./release/tournament
+
+analyze: release/build.ninja
+	cd release && ninja
 
 analyze1: analyze
-	analyze -d 2006d6c0864151ba79c30127   # slam dunk shoot moon current player
+	./release/analyze -d 2006d6c0864151ba79c30127   # slam dunk shoot moon current player
 
 analyze2: analyze
-	analyze -d 21b91f40fb464bc8fdda384d   # other player (2) shoots moon. May indicate bug in empirical score?
+	./release/analyze -d 21b91f40fb464bc8fdda384d   # other player (2) shoots moon. May indicate bug in empirical score?
 
 analyze3: analyze
-	analyze -d 5c7bd13b420f5774e65cd0b7   # Player 3 either shoots the moon or misses by 1 point
+	./release/analyze -d 5c7bd13b420f5774e65cd0b7   # Player 3 either shoots the moon or misses by 1 point
 
 analyze4: analyze
-		analyze -d a5a9d06f5c340ca6ab864fb6 # Second player shoots the moon with strong, but I think stoppable hand
+	./release/analyze -d a5a9d06f5c340ca6ab864fb6 # Second player shoots the moon with strong, but I think stoppable hand
 
+disttest: debug/build.ninja
+	cd debug && ninja && ./disttest
 
-validate:
-	buck build :validate
+validate: debug/build.ninja
+	cd debug && ninja
 
 validate1: validate
-	validate 2006d6c0864151ba79c30127
+	./debug/validate 2006d6c0864151ba79c30127
 
-all: opt tournament analyze disttest deal validate
+all: opt tournament analyze1 disttest deal validate1
