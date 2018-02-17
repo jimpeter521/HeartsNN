@@ -58,17 +58,22 @@ int main(int argc, char** argv)
 
   AnnotatorPtr annotator(new WriteDataAnnotator(true));
 
+  const uint32_t kMinAlternates = 30;
+  const float kTimeBudget = 0.1;
+
   StrategyPtr player;
   StrategyPtr opponent;
   if (argc > 2) {
     loadModel(argv[2]);
     StrategyPtr intuition(new DnnModelIntuition(gModel));
     opponent = intuition;
-    player = StrategyPtr(new MonteCarlo(intuition, annotator));
+    const uint32_t kMaxAlternates = 50;
+    player = StrategyPtr(new MonteCarlo(intuition, kMinAlternates, kMaxAlternates, kTimeBudget, annotator));
   } else {
     StrategyPtr intuition(new RandomStrategy());
     opponent = intuition;
-    player = StrategyPtr(new MonteCarlo(intuition, annotator));
+    const uint32_t kMaxAlternates = 2000;
+    player = StrategyPtr(new MonteCarlo(intuition, kMinAlternates, kMaxAlternates, kTimeBudget, annotator));
   }
 
   run(dealIndex, player, opponent);
