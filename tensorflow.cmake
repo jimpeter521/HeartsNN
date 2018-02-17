@@ -9,11 +9,11 @@ find_path(TensorFlow_INCLUDE_DIR
 include(FindPackageHandleStandardArgs)
 unset(TENSORFLOW_FOUND)
 
-find_library(TensorFlow_cc_LIBRARY NAMES tensorflow_cc
+find_library(TensorFlow__framework_LIBRARY NAMES tensorflow_framework
         HINTS
         /usr/local/lib)
 
-find_library(TensorFlow__framework_LIBRARY NAMES tensorflow_framework
+find_library(TensorFlow_cc_LIBRARY NAMES tensorflow_cc
         HINTS
         /usr/local/lib)
 
