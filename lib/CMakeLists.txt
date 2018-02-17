@@ -1,0 +1,3 @@
+
+include_directories( ${PROJECT_SOURCE_DIR} )
+add_library (lib STATIC Annotator.cpp Card.cpp CardArray.cpp Deal.cpp Distribution.cpp DnnModelIntuition.cpp DnnMonteCarloAnnotator.cpp GameOutcome.cpp GameState.cpp HeartsState.cpp KnowableState.cpp MonteCarlo.cpp NoVoidsAnalyzer.cpp OneOpponentGetsSuit.cpp PossibilityAnalyzer.cpp RandomStrategy.cpp Strategy.cpp TwoOpponentsGetSuit.cpp VoidBits.cpp WriteDataAnnotator.cpp combinatorics.cpp debug.cpp math.cpp random.cpp timer.cpp)

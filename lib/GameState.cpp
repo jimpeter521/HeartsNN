@@ -102,6 +102,9 @@ GameOutcome GameState::PlayGame(StrategyPtr players[4])
   return CheckForShootTheMoon();
 }
 
+// This is how we do one "rollout" to the end of the game.
+// The strategy passed in here should be an "intuition" strategy,
+// either the RandomStrategy or the DnnModelIntuition strategy.
 GameOutcome GameState::PlayOutGameMonteCarlo(const StrategyPtr& opponent)
 {
   while (!Done())
