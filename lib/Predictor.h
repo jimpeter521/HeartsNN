@@ -46,6 +46,9 @@ public:
 private:
   void EnqueueOneRequest(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& output, Semaphore& sem) const;
 
+  void ProcessRequests();
+  void ProcessOneBatch();
+
   struct PredictElement {
     PredictElement(const tensorflow::Tensor& mainData
                  , std::vector<tensorflow::Tensor>& output
@@ -60,9 +63,9 @@ private:
 
 private:
   SynchronousPredictor* mImplPredictor;
-  dlib::thread_pool& mThreadPool;
-
   mutable dlib::mutex mQueueMutex;
   mutable std::forward_list<PredictElement> mQueue;
   mutable Semaphore mRequestsPending;
+  volatile bool mRunning;
+  uint64_t mTaskId;
 };

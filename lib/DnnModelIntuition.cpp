@@ -16,7 +16,10 @@
 using namespace std;
 using namespace tensorflow;
 
-DnnModelIntuition::~DnnModelIntuition() {}
+DnnModelIntuition::~DnnModelIntuition() {
+  printf("Deleting DnnModelIntuition\n");
+  delete mPredictor;
+}
 
 DnnModelIntuition::DnnModelIntuition(const tensorflow::SavedModelBundle& model)
 : mPredictor(new PooledPredictor(model))

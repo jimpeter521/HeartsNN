@@ -68,9 +68,16 @@ public:
     void AppendTo(Eigen::TensorMap<Eigen::Tensor<float, 2, 1, long>, 16, Eigen::MakePointer> m, int &index);
   };
 
-  static const int kNumExtraFeatures = sizeof(ExtraFeatures) / sizeof(float);
-
   void ComputeExtraFeatures(ExtraFeatures& extra) const;
+
+public:
+  static const int kNumPlayers = 4;
+  static const int kNumFeaturesPerCard = kNumPlayers + 3;
+  static const int kMoonFlagsLen = 4;
+  static const int kPlaysPerTrick = 4;
+  static const int kPointsExtraFeatures = kPlaysPerTrick + 1 + kMoonFlagsLen;
+  static const int kNumExtraFeatures = sizeof(ExtraFeatures) / sizeof(float);
+  static const int kNumFeatures = kNumFeaturesPerCard * kCardsPerDeck + kPointsExtraFeatures + kNumExtraFeatures;
 
 private:
   KnowableState();  // unimplemented

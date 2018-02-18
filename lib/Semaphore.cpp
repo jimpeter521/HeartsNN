@@ -52,6 +52,14 @@ unsigned Semaphore::Drain()
   return result;
 }
 
+unsigned Semaphore::TryDrain()
+{
+  auto_mutex locker(mMutex);
+  unsigned result = mValue;
+  mValue = 0;
+  return result;
+}
+
 unsigned Semaphore::DrainOrTimeout(unsigned long milliseconds)
 {
   auto_mutex locker(mMutex);
@@ -59,7 +67,6 @@ unsigned Semaphore::DrainOrTimeout(unsigned long milliseconds)
   {}
   unsigned result = mValue;
   mValue = 0;
-  // dlog << LINFO << this << " DrainOrTimeout() Thread:" << get_thread_id() << " result: " << result << " mValue: " << mValue;
   return result;
 }
 
@@ -70,14 +77,5 @@ unsigned Semaphore::WaitFor(unsigned count, unsigned long milliseconds)
   {}
   unsigned result = mValue;
   mValue = 0;
-  return result;
-}
-
-unsigned Semaphore::TryDrain()
-{
-  auto_mutex locker(mMutex);
-  unsigned result = mValue;
-  mValue = 0;
-  // dlog << LINFO << this << " TryDrain() Thread:" << get_thread_id() << " result: " << result << " mValue: " << mValue;
   return result;
 }

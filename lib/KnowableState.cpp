@@ -255,14 +255,6 @@ tensorflow::Tensor KnowableState::Transform() const
 
   assert(kNumExtraFeatures == 33);
 
-  const int kNumPlayers = 4;
-  const int kNumFeaturesPerCard = kNumPlayers + 3;
-  const int kMoonFlagsLen = 4;
-  const int kPlaysPerTrick = 4;
-	const int kPointsExtraFeatures = kPlaysPerTrick + 1 + kMoonFlagsLen;
-
-  const int kNumFeatures = kNumFeaturesPerCard * kCardsPerDeck + kPointsExtraFeatures + kNumExtraFeatures;
-
   Tensor mainData(DT_FLOAT, TensorShape({1, kNumFeatures}));
   auto matrix = mainData.matrix<float>();
 
