@@ -12,10 +12,10 @@ add_executable(hearts hearts.cpp)
 add_executable(tournament tournament.cpp)
 add_executable(validate validate.cpp)
 
+include_directories( ${PROJECT_SOURCE_DIR} dlib )
+
 add_subdirectory(dlib)
 add_subdirectory(lib)
-include_directories( ${PROJECT_SOURCE_DIR} )
-
 
 set(ALL_LIBRARIES lib dlib ${TensorFlow_LIBRARIES})
 

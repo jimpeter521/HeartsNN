@@ -18,6 +18,7 @@ add_library(lib STATIC
     PossibilityAnalyzer.cpp
     Predictor.cpp
     RandomStrategy.cpp
+    Semaphore.cpp
     Strategy.cpp
     TwoOpponentsGetSuit.cpp
     VoidBits.cpp
