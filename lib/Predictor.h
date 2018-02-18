@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "lib/Semaphore.h"
+
 #include <tensorflow/cc/saved_model/loader.h>
+#include "dlib/threads.h"
+#include <forward_list>
 
 namespace tensorflow {
   struct SavedModelBundle;
@@ -40,5 +44,25 @@ public:
   virtual void Predict(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& outputs) const;
 
 private:
+  void EnqueueOneRequest(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& output, Semaphore& sem) const;
+
+  struct PredictElement {
+    PredictElement(const tensorflow::Tensor& mainData
+                 , std::vector<tensorflow::Tensor>& output
+                 , Semaphore& sem)
+    : mMainData(mainData), mOutput(output), mSemaphore(sem)
+    {}
+
+    const tensorflow::Tensor& mMainData;
+    std::vector<tensorflow::Tensor>& mOutput;
+    Semaphore& mSemaphore;
+  };
+
+private:
   SynchronousPredictor* mImplPredictor;
+  dlib::thread_pool& mThreadPool;
+
+  mutable dlib::mutex mQueueMutex;
+  mutable std::forward_list<PredictElement> mQueue;
+  mutable Semaphore mRequestsPending;
 };

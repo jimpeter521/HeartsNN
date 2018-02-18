@@ -1,11 +1,18 @@
 // Predictor.cpp
 
 #include "lib/Predictor.h"
+#include <dlib/logger.h>
+
+using namespace std;
+using namespace dlib;
+using namespace tensorflow;
+
+logger dlog("predictor");
 
 namespace {
-  std::vector<std::string> out_tensor_names(const std::vector<std::string>& output_tensor_names) {
+  vector<string> out_tensor_names(const vector<string>& output_tensor_names) {
     if (output_tensor_names.size() == 0) {
-      return std::vector<std::string>({"expected_score/expected_score:0"});
+      return vector<string>({"expected_score/expected_score:0"});
     } else {
       return output_tensor_names;
     }
@@ -22,14 +29,14 @@ Predictor::~Predictor()
 SynchronousPredictor::~SynchronousPredictor()
 {}
 
-SynchronousPredictor::SynchronousPredictor(const tensorflow::SavedModelBundle& model, const std::vector<std::string> output_tensor_names)
+SynchronousPredictor::SynchronousPredictor(const SavedModelBundle& model, const vector<string> output_tensor_names)
 : Predictor()
 , mModel(model)
 , mOutTensorNames(out_tensor_names(output_tensor_names))
 {
 }
 
-void SynchronousPredictor::Predict(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& outputs) const
+void SynchronousPredictor::Predict(const Tensor& mainData, vector<Tensor>& outputs) const
 {
   auto result = mModel.session->Run({{"main_data:0", mainData}}, mOutTensorNames, {}, &outputs);
   if (!result.ok()) {
@@ -43,12 +50,33 @@ void SynchronousPredictor::Predict(const tensorflow::Tensor& mainData, std::vect
 PooledPredictor::~PooledPredictor()
 {}
 
-PooledPredictor::PooledPredictor(const tensorflow::SavedModelBundle& model, const std::vector<std::string> output_tensor_names)
+PooledPredictor::PooledPredictor(const SavedModelBundle& model, const vector<string> output_tensor_names)
 : mImplPredictor(new SynchronousPredictor(model, output_tensor_names))
+, mThreadPool(default_thread_pool())
+, mQueueMutex()
+, mQueue()
+, mRequestsPending()
 {
+  dlog.set_level(LALL);
+  dlog << LINFO << "PooledPredictor start with num threads: " << mThreadPool.num_threads_in_pool();
 }
 
-void PooledPredictor::Predict(const tensorflow::Tensor& mainData, std::vector<tensorflow::Tensor>& outputs) const
+void PooledPredictor::Predict(const Tensor& mainData, vector<Tensor>& output) const
 {
-  return mImplPredictor->Predict(mainData, outputs);
+  Semaphore doneSemaphore;
+  EnqueueOneRequest(mainData, output, doneSemaphore);
+  doneSemaphore.Acquire();
+  dlog << LINFO << "One request completed";
+  assert(output.size() > 0);
+}
+
+void PooledPredictor::EnqueueOneRequest(const tensorflow::Tensor& mainData
+                                      , std::vector<tensorflow::Tensor>& output
+                                      , Semaphore& sem) const
+{
+  dlog << LINFO << "EnqueueOneRequest";
+  PredictElement elem(mainData, output, sem);
+  auto_mutex locker(mQueueMutex);
+  mQueue.push_front(elem);
+  mRequestsPending.Release();
 }
