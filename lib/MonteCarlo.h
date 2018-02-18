@@ -15,6 +15,16 @@ public:
   virtual Card choosePlay(const KnowableState& state) const;
 
 private:
+
+  void PlayOneAlternate(const KnowableState& knowableState
+                      , const PossibilityAnalyzer* analyzer
+                      , uint128_t possibilityIndex
+                      , const CardHand& choices
+                      , unsigned trickWins[13]
+                      , int moonCounts[13][4]
+                      , float scores[13]) const;
+
+private:
   StrategyPtr mIntuition;
   const uint32_t kMinAlternates;
   const uint32_t kMaxAlternates;

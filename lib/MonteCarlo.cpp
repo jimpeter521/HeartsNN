@@ -35,6 +35,48 @@ MonteCarlo::MonteCarlo(const StrategyPtr& intuition
   assert(timeBudget <= 1.0);
 }
 
+void MonteCarlo::PlayOneAlternate(const KnowableState& knowableState
+                                , const PossibilityAnalyzer* analyzer
+                                , uint128_t possibilityIndex
+                                , const CardHand& choices
+                                , unsigned trickWins[13]
+                                , int moonCounts[13][4]
+                                , float scores[13]) const
+{
+  const unsigned currentPlayer = knowableState.CurrentPlayer();
+
+  CardHands hands;
+  knowableState.PrepareHands(hands);
+  analyzer->ActualizePossibility(possibilityIndex, hands);
+
+  knowableState.IsVoidBits().VerifyVoids(hands);
+
+  // Construct the game state for this alternate
+  const GameState alt(hands, knowableState);
+
+  CardArray::iterator it(choices);
+
+  // For each possible play
+  for (unsigned i=0; i<choices.Size(); ++i)
+  {
+    Card nextCardPlayed = it.next();
+
+    // Construct the next game state
+    GameState next(alt);
+    next.TrackTrickWinner(trickWins + i);
+    next.PlayCard(nextCardPlayed);
+
+    // Do one "roll out", i.e. play out the game to the end, using random plays
+    GameOutcome outcome = next.PlayOutGameMonteCarlo(mIntuition);
+
+    next.TrackTrickWinner(0);
+
+    outcome.updateMoonStats(currentPlayer, i, moonCounts);
+
+    scores[i] += outcome.boringScore(currentPlayer);
+  }
+}
+
 // For each legal play, play out (roll out) the game many times
 // Compute the expected score of a play as the average score all game rollouts.
 
@@ -42,7 +84,6 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
 {
   // knowableState.VerifyHeartsState();
 
-  const unsigned currentPlayer = knowableState.CurrentPlayer();
   const CardHand choices = knowableState.LegalPlays();
 
   if (choices.Size()==1)
@@ -75,47 +116,12 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
   for (alternate=0; alternate<kMaxAlternates; ++alternate)
   {
     const uint128_t possibilityIndex = rng.range128(numPossibilities);
-
-    CardHands hands;
-    knowableState.PrepareHands(hands);
-    analyzer->ActualizePossibility(possibilityIndex, hands);
-
-    knowableState.IsVoidBits().VerifyVoids(hands);
-
-    // Construct the game state for this alternate
-    const GameState alt(hands, knowableState);
-
-    CardArray::iterator it(choices);
-
-    // For each possible play
-    for (unsigned i=0; i<choices.Size(); ++i)
-    {
-      Card nextCardPlayed = it.next();
-
-      // Construct the next game state
-      GameState next(alt);
-      next.TrackTrickWinner(trickWins + i);
-      next.PlayCard(nextCardPlayed);
-
-      // Do one "roll out", i.e. play out the game to the end, using random plays
-      GameOutcome outcome = next.PlayOutGameMonteCarlo(mIntuition);
-
-      next.TrackTrickWinner(0);
-
-      outcome.updateMoonStats(currentPlayer, i, moonCounts);
-
-      scores[i] += outcome.boringScore(currentPlayer);
-    }
-
+    PlayOneAlternate(knowableState, analyzer, possibilityIndex, choices, trickWins, moonCounts, scores);
     if (alternate>=kMinAlternates && delta(start) > kTimeBudget) {
       // printf("Play %u, choices %u, stopped at %3.2f\n", knowableState.PlayNumber(), choices.Size(), 100.0*float(alternate)/kMaxAlternates);
       break;
     }
   }
-
-  // if (alternate == kMaxAlternates) {
-  //   printf("Not stopped: Play %u, choices %u\n", knowableState.PlayNumber(), choices.Size());
-  // }
 
   enum MoonCountKey {
     kCurrentShotTheMoon = 0,
