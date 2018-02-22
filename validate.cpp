@@ -29,6 +29,8 @@ void loadModel(const char* modelDirPath) {
   }
 }
 
+RandomGenerator rng;
+
 void run(uint128_t dealIndex, StrategyPtr player, StrategyPtr opponent) {
   StrategyPtr players[4];
 
@@ -40,7 +42,7 @@ void run(uint128_t dealIndex, StrategyPtr player, StrategyPtr opponent) {
     Deal deal(dealIndex);
     GameState state(deal);
 
-    /*GameOutcome outcome =*/ state.PlayGame(players);
+    /*GameOutcome outcome =*/ state.PlayGame(players, rng);
   }
 }
 

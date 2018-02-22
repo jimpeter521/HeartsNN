@@ -27,7 +27,7 @@ GameState KnowableState::HypotheticalState() const
 {
   PossibilityAnalyzer* analyzer = Analyze();
   uint128_t numPossibilities = analyzer->Possibilities();
-  uint128_t possibilityIndex = RandomGenerator::gRandomGenerator.range128(numPossibilities);
+  uint128_t possibilityIndex = RandomGenerator::Range128(numPossibilities);
 
   CardHands hands;
   PrepareHands(hands);

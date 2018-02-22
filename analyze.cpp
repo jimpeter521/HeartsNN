@@ -137,7 +137,7 @@ void runGame(StrategyPtr players[4]) {
   deck.printDeal();
 
   GameState state(deck);
-  GameOutcome outcome = state.PlayGame(players);
+  GameOutcome outcome = state.PlayGame(players, generator);
 
   if (outcome.shotTheMoon()) {
     printf("Shot the moon!\n");

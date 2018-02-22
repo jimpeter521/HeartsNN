@@ -17,7 +17,7 @@ public:
   virtual ~Strategy();
   Strategy(const AnnotatorPtr& annotator=0);
 
-  virtual Card choosePlay(const KnowableState& state) const = 0;
+  virtual Card choosePlay(const KnowableState& state, const RandomGenerator& rng) const = 0;
 
   AnnotatorPtr getAnnotator() const { return mAnnotator; }
 

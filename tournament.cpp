@@ -42,6 +42,8 @@ const char* gModelPath = "./savedmodel";
 bool gSaveMoonDeals = true;
 bool gQuiet = false;
 
+RandomGenerator rng;
+
 AnnotatorPtr kNoAnnotator(0);
 
 StrategyPtr makePlayer(const char* arg) {
@@ -260,7 +262,7 @@ struct Scores {
 void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, bool& moon) {
   Deal deck(dealIndex);
   GameState state(deck);
-  GameOutcome outcome = state.PlayGame(players);
+  GameOutcome outcome = state.PlayGame(players, rng);
   moon = outcome.shotTheMoon();
   bool stopped = outcome.stoppedTheMoon();
 

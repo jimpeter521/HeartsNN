@@ -12,8 +12,6 @@
 #include <sys/stat.h>
 #include <algorithm>
 
-static RandomGenerator rng;
-
 MonteCarlo::~MonteCarlo() {
 }
 
@@ -39,6 +37,7 @@ void MonteCarlo::PlayOneAlternate(const KnowableState& knowableState
                                 , const PossibilityAnalyzer* analyzer
                                 , uint128_t possibilityIndex
                                 , const CardHand& choices
+                                , const RandomGenerator& rng
                                 , unsigned trickWins[13]
                                 , int moonCounts[13][4]
                                 , float scores[13]) const
@@ -67,7 +66,7 @@ void MonteCarlo::PlayOneAlternate(const KnowableState& knowableState
     next.PlayCard(nextCardPlayed);
 
     // Do one "roll out", i.e. play out the game to the end, using random plays
-    GameOutcome outcome = next.PlayOutGameMonteCarlo(mIntuition);
+    GameOutcome outcome = next.PlayOutGameMonteCarlo(mIntuition, rng);
 
     next.TrackTrickWinner(0);
 
@@ -80,7 +79,7 @@ void MonteCarlo::PlayOneAlternate(const KnowableState& knowableState
 // For each legal play, play out (roll out) the game many times
 // Compute the expected score of a play as the average score all game rollouts.
 
-Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
+Card MonteCarlo::choosePlay(const KnowableState& knowableState, const RandomGenerator& rng) const
 {
   // knowableState.VerifyHeartsState();
 
@@ -116,7 +115,7 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState) const
   for (alternate=0; alternate<kMaxAlternates; ++alternate)
   {
     const uint128_t possibilityIndex = rng.range128(numPossibilities);
-    PlayOneAlternate(knowableState, analyzer, possibilityIndex, choices, trickWins, moonCounts, scores);
+    PlayOneAlternate(knowableState, analyzer, possibilityIndex, choices, rng, trickWins, moonCounts, scores);
     if (alternate>=kMinAlternates && delta(start) > kTimeBudget) {
       // printf("Play %u, choices %u, stopped at %3.2f\n", knowableState.PlayNumber(), choices.Size(), 100.0*float(alternate)/kMaxAlternates);
       break;

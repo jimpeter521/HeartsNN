@@ -85,7 +85,7 @@ void GameState::VerifyGameState() const
 #endif
 }
 
-GameOutcome GameState::PlayGame(StrategyPtr players[4])
+GameOutcome GameState::PlayGame(StrategyPtr players[4], const RandomGenerator& rng)
 {
   // We allow calling this method from a GameState in the middle of the game.
   // so we intentionally do not set mNextPlay=0 for first iteration of loop here.
@@ -97,7 +97,7 @@ GameOutcome GameState::PlayGame(StrategyPtr players[4])
     if (annotator) {
       annotator->OnGameStateBeforePlay(*this);
     }
-    NextPlay(player);
+    NextPlay(player, rng);
   }
   return CheckForShootTheMoon();
 }
@@ -105,11 +105,11 @@ GameOutcome GameState::PlayGame(StrategyPtr players[4])
 // This is how we do one "rollout" to the end of the game.
 // The strategy passed in here should be an "intuition" strategy,
 // either the RandomStrategy or the DnnModelIntuition strategy.
-GameOutcome GameState::PlayOutGameMonteCarlo(const StrategyPtr& opponent)
+GameOutcome GameState::PlayOutGameMonteCarlo(const StrategyPtr& opponent, const RandomGenerator& rng)
 {
   while (!Done())
   {
-    NextPlay(opponent);
+    NextPlay(opponent, rng);
   }
   return CheckForShootTheMoon();
 }
@@ -184,7 +184,7 @@ void GameState::PlayCard(Card card)
   AdvancePlayNumber();
 }
 
-Card GameState::NextPlay(const StrategyPtr& currentPlayersStrategy)
+Card GameState::NextPlay(const StrategyPtr& currentPlayersStrategy, const RandomGenerator& rng)
 {
   Card card;
   const CardHand choices = LegalPlays();
@@ -193,7 +193,7 @@ Card GameState::NextPlay(const StrategyPtr& currentPlayersStrategy)
   }
   else {
     KnowableState knowableState(*this);
-    card = currentPlayersStrategy->choosePlay(knowableState);
+    card = currentPlayersStrategy->choosePlay(knowableState, rng);
     assert(choices.HasCard(card));
   }
   PlayCard(card);

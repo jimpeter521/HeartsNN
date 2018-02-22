@@ -62,6 +62,8 @@ void run(int iterations) {
 
   float totalChampScore = 0;
 
+  RandomGenerator rng;
+
   StrategyPtr players[4];
   for (int i=0; i<iterations; i++)
   {
@@ -69,11 +71,11 @@ void run(int iterations) {
     // seat at the table. But we randomize here to flush out any bugs in the logic for how the knowable state
     // is serialized -- we don't want the current player to always be player 0.
     players[0] = players[1] = players[2] = players[3] = opponent;
-    int p = RandomGenerator::gRandomGenerator.range64(4);
+    int p = rng.range64(4);
     players[p] = player;
 
     GameState state;
-    GameOutcome outcome = state.PlayGame(players);
+    GameOutcome outcome = state.PlayGame(players, rng);
     totalChampScore += outcome.modifiedScore(p);
   }
 

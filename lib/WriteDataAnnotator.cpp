@@ -20,7 +20,7 @@ WriteDataAnnotator::~WriteDataAnnotator()
 }
 
 WriteDataAnnotator::WriteDataAnnotator(bool validateMode)
-: mHash(asHexString(RandomGenerator::gRandomGenerator.random128()))
+: mHash(asHexString(RandomGenerator::Random128()))
 , mValidateMode(validateMode)
 {
   if (mValidateMode)

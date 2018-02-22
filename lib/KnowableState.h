@@ -7,7 +7,6 @@
 #include <unsupported/Eigen/CXX11/Tensor>
 #include <tensorflow/core/framework/tensor.h>
 
-
 class GameState;
 class PossibilityAnalyzer;
 

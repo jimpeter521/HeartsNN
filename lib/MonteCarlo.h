@@ -12,7 +12,7 @@ public:
 
   MonteCarlo(const StrategyPtr& intuition, uint32_t minAlternates, uint32_t maxAlternates, float timeBudget, const AnnotatorPtr& annotator=0);
 
-  virtual Card choosePlay(const KnowableState& state) const;
+  virtual Card choosePlay(const KnowableState& state, const RandomGenerator& rng) const;
 
 private:
 
@@ -20,6 +20,7 @@ private:
                       , const PossibilityAnalyzer* analyzer
                       , uint128_t possibilityIndex
                       , const CardHand& choices
+                      , const RandomGenerator& rng
                       , unsigned trickWins[13]
                       , int moonCounts[13][4]
                       , float scores[13]) const;

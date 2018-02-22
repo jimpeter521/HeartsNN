@@ -20,6 +20,8 @@ const uint32_t kMinAlternates = 30;
 const uint32_t kMaxAlternates = 2000;
 const float kTimeBudget = 0.25;
 
+RandomGenerator rng;
+
 int run()
 {
   StrategyPtr intuition(new RandomStrategy());
@@ -45,7 +47,7 @@ int run()
       break;
     }
 
-    Card card = monte->choosePlay(knowableState);
+    Card card = monte->choosePlay(knowableState, rng);
     state.PlayCard(card);
   }
 

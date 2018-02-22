@@ -26,7 +26,7 @@ DnnModelIntuition::DnnModelIntuition(const tensorflow::SavedModelBundle& model)
 {
 }
 
-Card DnnModelIntuition::choosePlay(const KnowableState& state) const
+Card DnnModelIntuition::choosePlay(const KnowableState& state, const RandomGenerator& rng) const
 {
   tensorflow::Tensor mainData = state.Transform();
 

@@ -17,7 +17,7 @@ public:
 
   DnnModelIntuition(const tensorflow::SavedModelBundle& model);
 
-  virtual Card choosePlay(const KnowableState& state) const;
+  virtual Card choosePlay(const KnowableState& state, const RandomGenerator& rng) const;
 
 private:
   Predictor* mPredictor;

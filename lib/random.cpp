@@ -23,7 +23,7 @@ RandomGenerator::RandomGenerator()
   mP = 0;
 }
 
-uint64_t RandomGenerator::random64()
+uint64_t RandomGenerator::random64() const
 {
   // see https://en.wikipedia.org/wiki/Xorshift
   // This is the xorshift1024star generator, which has a period of 2^1024 − 1
@@ -34,13 +34,13 @@ uint64_t RandomGenerator::random64()
   return mS[mP] * 1181783497276652981ul;
 }
 
-uint128_t RandomGenerator::random128()
+uint128_t RandomGenerator::random128() const
 {
   uint128_t result = random64();
   return (result<<64) + random64();
 }
 
-uint64_t RandomGenerator::range64(uint64_t range)
+uint64_t RandomGenerator::range64(uint64_t range) const
 {
   const uint64_t MAX64 = ~uint64_t(0);
   const uint64_t buckets = MAX64 / range;
@@ -51,7 +51,7 @@ uint64_t RandomGenerator::range64(uint64_t range)
   return r / buckets;
 }
 
-uint128_t RandomGenerator::range128(uint128_t range)
+uint128_t RandomGenerator::range128(uint128_t range) const
 {
   const uint128_t buckets = MAX128 / range;
   const uint128_t limit = buckets * range;
@@ -61,7 +61,7 @@ uint128_t RandomGenerator::range128(uint128_t range)
   return r / buckets;
 }
 
-RandomGenerator RandomGenerator::gRandomGenerator;
+dlib::thread_specific_data<RandomGenerator> RandomGenerator::gRandomGenerator;
 
 const uint128_t zero = 0;
 const uint128_t RandomGenerator::MAX128 = ~zero;

@@ -31,7 +31,7 @@ Card CardArray::NthCard(unsigned n) const
 }
 
 
-Card CardArray::aCardAtRandom(RandomGenerator& rng) const
+Card CardArray::aCardAtRandom(const RandomGenerator& rng) const
 {
   unsigned choice = unsigned(rng.range64(Size()));
   return NthCard(choice);
