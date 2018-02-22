@@ -11,16 +11,22 @@
 #include <tensorflow/cc/saved_model/loader.h>
 #include <tensorflow/cc/saved_model/tag_constants.h>
 
-const int kBatchSize = 500;
+const int kConcurrency = 2 + (std::thread::hardware_concurrency()/2);
+const int kIterationsPerTask = 100;
+const int kBatchSize = kConcurrency*kIterationsPerTask;
+dlib::thread_pool tp(kConcurrency);
 
 const char* gModelPath = 0;
 tensorflow::SavedModelBundle gModel;
+
+static bool gLoaded = false;
+dlib::mutex gLoadModelMutex;
 
 void loadModel() {
   // This is a hack to allow just in time loading of the model, and loading it only once.
   // TODO: Add command line handling and use the approach in tournament.cpp to load a model
   // only when needed.
-  static bool gLoaded = false;
+  dlib::auto_mutex lock(gLoadModelMutex);
   if (gLoaded)
     return;
 
@@ -32,52 +38,63 @@ void loadModel() {
      std::cerr << "Failed: " << status;
      exit(1);
   }
+  std::cout << "Model loaded" << std::endl;
   gLoaded = true;
 }
 
 StrategyPtr getIntuition() {
   if (gModelPath) {
     loadModel();
-    return StrategyPtr(new DnnModelIntuition(gModel));
+    return StrategyPtr(new DnnModelIntuition(gModel, false));
   } else {
     return StrategyPtr(new RandomStrategy());
   }
 }
 
-void run(int iterations) {
-  const double startTime = now();
-
-  AnnotatorPtr annotator(new WriteDataAnnotator());
-
-  StrategyPtr intuition = getIntuition();
+float run_iterations_task(int kIterationsPerTask, StrategyPtr opponent)
+{
+  const RandomGenerator& rng = RandomGenerator::ThreadSpecific();
+  const uint32_t kNumAlternates = gModelPath ? 100 : 5000;
 
   // The `player` uses monte carlo and will generate data
-  const uint32_t kMinAlternates = 30;
-  const uint32_t kMaxAlternates = gModelPath!=0 ? 50 : 2000;
-  const float kTimeBudget = 0.25;
-  StrategyPtr player(new MonteCarlo(intuition, kMinAlternates, kMaxAlternates, kTimeBudget, annotator));
-
-  // Each of the three opponents will use intuition only and not write data.
-  StrategyPtr opponent(intuition);
-
-  float totalChampScore = 0;
-
-  RandomGenerator rng;
+  AnnotatorPtr annotator(new WriteDataAnnotator());
+  StrategyPtr player(new MonteCarlo(opponent, kNumAlternates, false, annotator));
 
   StrategyPtr players[4];
-  for (int i=0; i<iterations; i++)
+
+  float totalChampScore = 0.0;
+  for (int i=0; i<kIterationsPerTask; ++i)
   {
     // It doesn't matter too much if we randomize seating because the two of clubs will still be dealt to a random
     // seat at the table. But we randomize here to flush out any bugs in the logic for how the knowable state
     // is serialized -- we don't want the current player to always be player 0.
+    int p = i % 4;
     players[0] = players[1] = players[2] = players[3] = opponent;
-    int p = rng.range64(4);
     players[p] = player;
 
     GameState state;
     GameOutcome outcome = state.PlayGame(players, rng);
     totalChampScore += outcome.modifiedScore(p);
   }
+
+  return totalChampScore;
+}
+
+void run(int iterations, const StrategyPtr& opponent)
+{
+  assert((iterations % kConcurrency) == 0);
+  const double startTime = now();
+
+  std::vector<std::future<float>> totals(kConcurrency);
+
+  const int perTask = iterations / kConcurrency;
+  assert(perTask >= 1);
+  for (int i=0; i<kConcurrency; i++)
+    totals[i] = dlib::async(tp, [perTask, opponent]() {return run_iterations_task(perTask, opponent);});
+
+  float totalChampScore = 0;
+  for (int i=0; i<kConcurrency; i++)
+    totalChampScore += totals[i].get();
 
   printf("Average champion score: %3.1f\n", totalChampScore / iterations);
 
@@ -86,22 +103,35 @@ void run(int iterations) {
   printf("Batch Elapsed time: %4.2f, Avg per iteration: %4.3f\n", elapsed, avgTimePerRun);
 }
 
+int roundUpToConcurrency(int i)
+{
+  assert(i > 0);
+  const int perTask = (i+kConcurrency-1) / kConcurrency;
+  assert(perTask > 0);
+  return perTask * kConcurrency;
+}
+
 int main(int argc, char** argv)
 {
-  const int kTotalIterations = argc>=2 ? atoi(argv[1]) : 2;
-  assert(kTotalIterations > 0);
+  const int kTotalIterations = argc>=2 ? roundUpToConcurrency(atoi(argv[1])) : kConcurrency;
+  assert(kTotalIterations >= kConcurrency);
+  assert((kTotalIterations % kConcurrency) == 0);
 
   const bool kUseDNN = argc>=3;
   gModelPath = kUseDNN ? argv[2] : 0;
 
   int remainingIterations = kTotalIterations;
 
+  // Each of the three opponents will use intuition only and not write data.
+  StrategyPtr opponent = getIntuition();
+
   const double startTime = now();
   int doneSoFar = 0;
   while (remainingIterations > 0)
   {
     int iterationsThisBatch = remainingIterations > kBatchSize ? kBatchSize : remainingIterations;
-    run(iterationsThisBatch);
+    assert((iterationsThisBatch % kConcurrency) == 0);
+    run(iterationsThisBatch, opponent);
     remainingIterations -= iterationsThisBatch;
     doneSoFar += iterationsThisBatch;
 

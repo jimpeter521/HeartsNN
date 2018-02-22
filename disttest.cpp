@@ -16,16 +16,16 @@ static std::string debugFileName(int playNumber) {
   return basePath + pad + std::to_string(playNumber) + ".dot";
 }
 
-const uint32_t kMinAlternates = 30;
-const uint32_t kMaxAlternates = 2000;
-const float kTimeBudget = 0.25;
+const uint32_t kNumAlternates = 1000;
+const bool parallel = false;
 
 RandomGenerator rng;
 
 int run()
 {
   StrategyPtr intuition(new RandomStrategy());
-  StrategyPtr monte(new MonteCarlo(intuition, kMinAlternates, kMaxAlternates, kTimeBudget));
+  AnnotatorPtr annotator(0);
+  StrategyPtr monte(new MonteCarlo(intuition, kNumAlternates, parallel, annotator));
 
   GameState state;
   PossibilityAnalyzer* analyzer = 0;

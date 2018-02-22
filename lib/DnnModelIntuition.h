@@ -15,7 +15,7 @@ class DnnModelIntuition : public Strategy
 public:
   virtual ~DnnModelIntuition();
 
-  DnnModelIntuition(const tensorflow::SavedModelBundle& model);
+  DnnModelIntuition(const tensorflow::SavedModelBundle& model, bool pooled=false);
 
   virtual Card choosePlay(const KnowableState& state, const RandomGenerator& rng) const;
 

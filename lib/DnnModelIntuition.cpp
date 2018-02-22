@@ -21,9 +21,13 @@ DnnModelIntuition::~DnnModelIntuition() {
   delete mPredictor;
 }
 
-DnnModelIntuition::DnnModelIntuition(const tensorflow::SavedModelBundle& model)
-: mPredictor(new PooledPredictor(model))
+DnnModelIntuition::DnnModelIntuition(const tensorflow::SavedModelBundle& model, bool pooled)
+: mPredictor(0)
 {
+  if (pooled)
+    mPredictor = new PooledPredictor(model);
+  else
+    mPredictor = new SynchronousPredictor(model);
 }
 
 Card DnnModelIntuition::choosePlay(const KnowableState& state, const RandomGenerator& rng) const

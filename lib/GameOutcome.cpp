@@ -88,10 +88,11 @@ void GameOutcome::Set(unsigned pointTricks[4], unsigned score[4])
   }
 }
 
-void GameOutcome::updateMoonStats(unsigned currentPlayer, int iChoice, int moonCounts[13][kNumMoonCountKeys])
+void GameOutcome::updateMoonStats(unsigned currentPlayer, int iChoice, int moonCounts[13][kNumMoonCountKeys]) const
 {
   if (mShotTheMoon) {
     unsigned myScore = mScores[currentPlayer];
+    assert(myScore <= 26u);
     if (myScore == kExpectedTotal) {
       ++moonCounts[iChoice][kCurrentShotTheMoon];
     } else {
@@ -109,7 +110,11 @@ void GameOutcome::updateMoonStats(unsigned currentPlayer, int iChoice, int moonC
 }
 
 float GameOutcome::boringScore(unsigned currentPlayer) const {
-  return mScores[currentPlayer] - 6.5;
+  assert(mScores[currentPlayer] <= 26u);
+  float score = mScores[currentPlayer] - 6.5;
+  assert(score >= -6.5);
+  assert(score <= 19.5);
+  return score;
 }
 
 float GameOutcome::modifiedScore(unsigned currentPlayer) const
