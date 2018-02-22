@@ -4,13 +4,19 @@ debug:
 	mkdir -p debug
 
 debug/build.ninja: debug
-	cd debug && cmake -GNinja -DCMAKE_BUILD_TYPE=Debug ..
+	cd debug && cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ..
 
 release:
 	mkdir -p release
 
 release/build.ninja: release
-	cd release && cmake -GNinja -DCMAKE_BUILD_TYPE=Release ..
+	cd release && cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
+
+xcode:
+	mkdir -p xcode
+
+xcode/HeartsNN.xcodeproj: xcode
+	cd xcode && cmake -G Xcode ..
 
 hearts: debug/build.ninja
 	cd debug && ninja

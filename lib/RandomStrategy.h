@@ -10,7 +10,5 @@ public:
 
   RandomStrategy();
 
-  virtual Card choosePlay(const KnowableState& state) const;
-
-  static const RandomStrategy* const gSingleton;
+  virtual Card choosePlay(const KnowableState& state, const RandomGenerator& rng) const;
 };

@@ -18,7 +18,7 @@ public:
 
   GameState(const CardHands& hands, const KnowableState& knowableState);
 
-  GameOutcome PlayGame(StrategyPtr players[4]);
+  GameOutcome PlayGame(StrategyPtr players[4], const RandomGenerator& rng);
     // Return the final outcome with mean zero scores.
     // If the playerWithQueen is not NULL, return in it the number of the player who got the queen in this game.
 
@@ -27,7 +27,7 @@ public:
   void PlayCard(Card nextCardPlayed);
     // Advances the game to the next state
 
-  GameOutcome PlayOutGameMonteCarlo(const StrategyPtr& opponent);
+  GameOutcome PlayOutGameMonteCarlo(const StrategyPtr& opponent, const RandomGenerator& rng);
     // Plays out the rest of this game using random legal moves at each step.
     // Return in finalScores the final outcome with mean zero scores.
     // Return in pointTricks the count of points-with-tricks won by each player
@@ -38,7 +38,7 @@ public:
 
   virtual const CardHand& CurrentPlayersHand() const { return mHands[CurrentPlayer()]; }
 
-  Card NextPlay(const StrategyPtr& currentPlayersStrategy);
+  Card NextPlay(const StrategyPtr& currentPlayersStrategy, const RandomGenerator& rng);
 
   void PrintHand(int player) const { mHands[player].Print(); }
 

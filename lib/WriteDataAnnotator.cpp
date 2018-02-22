@@ -20,7 +20,7 @@ WriteDataAnnotator::~WriteDataAnnotator()
 }
 
 WriteDataAnnotator::WriteDataAnnotator(bool validateMode)
-: mHash(asHexString(RandomGenerator::gRandomGenerator.random128()))
+: mHash(asHexString(RandomGenerator::Random128()))
 , mValidateMode(validateMode)
 {
   if (mValidateMode)
@@ -57,11 +57,13 @@ void WriteDataAnnotator::OnGameStateBeforePlay(const GameState& state)
 {
 }
 
+const int kScale = 1000;
+
 std::string FixedPointToString(int x)
 {
   assert(x >= 0);
-  assert(x <= 1000);
-  if (x == 1000) {
+  assert(x <= kScale);
+  if (x == kScale) {
     return std::string("1.000");
   } else {
     char buffer[6] = "0.000";
@@ -114,7 +116,6 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
   for (unsigned i=0; i<choices.Size(); ++i) {
     Card card = it.next();
 
-    const int kScale = 1000;
     int f[5];
     int sum = 0;
     for (int j=0; j<5; j++) {
@@ -122,18 +123,19 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
       sum += scaled;
       f[j] = scaled;
     }
-    if (sum < 1000) {
-      // We will add the difference to the first non-zero element less than 1/2 (500)
-      int delta = 1000 - sum; // should be 1 nearly all the time
+    if (sum < kScale) {
+      // We will add the difference to the first non-zero element less than 1/2
+      const int kHalf = kScale/2;
+      int delta = kScale - sum; // should be 1 nearly all the time
       sum += delta;
       for (int j=0; j<5; j++) {
-        if (f[j]>0 && f[j]<500) {
+        if (f[j]>0 && f[j]<kHalf) {
           f[j] += delta;
           break;
         }
       }
-    } else if (sum > 1000) {
-      int delta = 1000 - sum; // should be -1 nearly all the time
+    } else if (sum > kScale) {
+      int delta = kScale - sum; // should be -1 nearly all the time
       sum += delta;
       // We will reduce the largest value
       int imax = 0;
@@ -147,7 +149,14 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
       f[imax] += delta;
     }
 
-    assert(sum == 1000);
+    assert(sum == kScale);
+
+    // Expected score here should be the "boring" score.
+    // We want to make it easy on our models to learn to predict appoximate number of points that can be taken.
+    // We'll use the moonProb prediction to come the corrected score.
+    const float kEpsilon = 0.001;  // a little fudge factor for inexact floating point.
+    assert(expectedScore[i] >= -6.5 - kEpsilon);
+    assert(expectedScore[i] <= 19.5 + kEpsilon);
 
     fprintf(out, "%3s  %5.4f %5.4f | %s %s %s %s %s\n", NameOf(card), expectedScore[i], winsTrickProb[i]
                , FixedPointToString(f[0]).c_str(), FixedPointToString(f[1]).c_str(), FixedPointToString(f[2]).c_str()

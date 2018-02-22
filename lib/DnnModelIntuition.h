@@ -2,6 +2,7 @@
 
 #include "lib/Strategy.h"
 #include "lib/CardArray.h"
+#include "lib/Predictor.h"
 
 #include <tensorflow/cc/saved_model/loader.h>
 
@@ -14,10 +15,10 @@ class DnnModelIntuition : public Strategy
 public:
   virtual ~DnnModelIntuition();
 
-  DnnModelIntuition(const tensorflow::SavedModelBundle& model);
+  DnnModelIntuition(const tensorflow::SavedModelBundle& model, bool pooled=false);
 
-  virtual Card choosePlay(const KnowableState& state) const;
+  virtual Card choosePlay(const KnowableState& state, const RandomGenerator& rng) const;
 
 private:
-  const tensorflow::SavedModelBundle& mModel;
+  Predictor* mPredictor;
 };

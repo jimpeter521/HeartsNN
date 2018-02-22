@@ -26,9 +26,6 @@ void loadModel(const char* path) {
   }
 }
 
-int gMinAlternates = 10;
-int gMaxAlternates = 50;
-float gTimeBudget = 1.0;
 int gNumMatches = 0;
 uint128_t* gDeals = 0;
 
@@ -42,7 +39,11 @@ const char* gModelPath = "./savedmodel";
 bool gSaveMoonDeals = true;
 bool gQuiet = false;
 
+RandomGenerator rng;
+
 AnnotatorPtr kNoAnnotator(0);
+
+const bool parallel = true;
 
 StrategyPtr makePlayer(const char* arg) {
   StrategyPtr player;
@@ -51,7 +52,7 @@ StrategyPtr makePlayer(const char* arg) {
   }
   else if (std::string(arg) == std::string("simple")) {
     StrategyPtr intuition(new RandomStrategy());
-    player = StrategyPtr(new MonteCarlo(intuition, gMinAlternates, gMaxAlternates, gTimeBudget, kNoAnnotator));
+    player = StrategyPtr(new MonteCarlo(intuition, 1000, parallel, kNoAnnotator));
   }
   else if (std::string(arg) == std::string("intuition")) {
     loadModel(gModelPath);
@@ -60,12 +61,12 @@ StrategyPtr makePlayer(const char* arg) {
   else if (std::string(arg) == std::string("dnnmonte")) {
     loadModel(gModelPath);
     StrategyPtr intuition(new DnnModelIntuition(gModel));
-    player = StrategyPtr(new MonteCarlo(intuition, gMinAlternates, gMaxAlternates, gTimeBudget, kNoAnnotator));
+    player = StrategyPtr(new MonteCarlo(intuition, 100, parallel, kNoAnnotator));
   }
   else {
     loadModel(arg);
     StrategyPtr intuition(new DnnModelIntuition(gModel));
-    player = StrategyPtr(new MonteCarlo(intuition, gMinAlternates, gMaxAlternates, gTimeBudget, kNoAnnotator));
+    player = StrategyPtr(new MonteCarlo(intuition, 100, parallel, kNoAnnotator));
   }
   return player;
 }
@@ -79,9 +80,6 @@ void usage() {
     "    -o,--opponent <strategy>   the strategy to use for the `opponent` (default:random)",
     "    -c,--champion <strategy>   the strategy to use for the `champion` (default: simple)",
     "    -d,--deals <dealIndexFile> a file containing deal indexes to play from (default: choose deals at random)",
-    "    -n,--min_alts <int>        min alternate simulated games for the `simple` and `dnnmonte` players (default:10)",
-    "    -x,--max_alts <int>        max alternate simulated games for the `simple` and `dnnmonte` players (default:50)",
-    "    -b,--budget <float>        the time budget in seconds for the `simple` and `dnnmonte` players to use (default:1.0)",
     "    -h,--help                  print this message",
     0
   };
@@ -128,9 +126,6 @@ void parseArgs(int argc, char** argv) {
     { "opponent", required_argument, NULL, 'o' },
     { "champion", required_argument, NULL, 'c' },
     { "deals", required_argument, NULL, 'd'},
-    { "min_alts",  required_argument, NULL, 'n' },
-    { "max_alts",  required_argument, NULL, 'x' },
-    { "budget",  required_argument, NULL, 'b' },
     { "quiet",  no_argument, NULL, 'q' },
     { "help", no_argument, NULL, 'h' },
     { NULL,                       0, NULL,  0  }
@@ -139,7 +134,7 @@ void parseArgs(int argc, char** argv) {
   while (true) {
 
     int longindex = 0;
-    int ch = getopt_long(argc, argv, "m:g:o:c:d:x:n:b:qh", longopts, &longindex);
+    int ch = getopt_long(argc, argv, "m:g:o:c:d:qh", longopts, &longindex);
     if (ch == -1) {
       break;
     }
@@ -165,21 +160,6 @@ void parseArgs(int argc, char** argv) {
         randomDeals(atoi(optarg));
         break;
       }
-      case 'x':
-      {
-        gMaxAlternates = atoi(optarg);
-        break;
-      }
-      case 'n':
-      {
-        gMinAlternates = atoi(optarg);
-        break;
-      }
-      case 'b':
-      {
-        gTimeBudget = atof(optarg);
-        break;
-      }
       case 'd':
       {
         readDeals(optarg);
@@ -199,8 +179,6 @@ void parseArgs(int argc, char** argv) {
       }
     }
   }
-
-  printf("min(%u), max(%u), time(%4.2f)\n", gMinAlternates, gMaxAlternates, gTimeBudget);
 
   if (gDeals == 0) {
     randomDeals(1);
@@ -260,7 +238,7 @@ struct Scores {
 void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, bool& moon) {
   Deal deck(dealIndex);
   GameState state(deck);
-  GameOutcome outcome = state.PlayGame(players);
+  GameOutcome outcome = state.PlayGame(players, rng);
   moon = outcome.shotTheMoon();
   bool stopped = outcome.stoppedTheMoon();
 

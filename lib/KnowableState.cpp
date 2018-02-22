@@ -27,7 +27,7 @@ GameState KnowableState::HypotheticalState() const
 {
   PossibilityAnalyzer* analyzer = Analyze();
   uint128_t numPossibilities = analyzer->Possibilities();
-  uint128_t possibilityIndex = RandomGenerator::gRandomGenerator.range128(numPossibilities);
+  uint128_t possibilityIndex = RandomGenerator::Range128(numPossibilities);
 
   CardHands hands;
   PrepareHands(hands);
@@ -255,14 +255,6 @@ tensorflow::Tensor KnowableState::Transform() const
 
   assert(kNumExtraFeatures == 33);
 
-  const int kNumPlayers = 4;
-  const int kNumFeaturesPerCard = kNumPlayers + 3;
-  const int kMoonFlagsLen = 4;
-  const int kPlaysPerTrick = 4;
-	const int kPointsExtraFeatures = kPlaysPerTrick + 1 + kMoonFlagsLen;
-
-  const int kNumFeatures = kNumFeaturesPerCard * kCardsPerDeck + kPointsExtraFeatures + kNumExtraFeatures;
-
   Tensor mainData(DT_FLOAT, TensorShape({1, kNumFeatures}));
   auto matrix = mainData.matrix<float>();
 
@@ -391,18 +383,9 @@ Card KnowableState::TransformAndPredict(const tensorflow::SavedModelBundle& mode
   return Predict(model, mainData, playExpectedValue);
 }
 
-Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, tensorflow::Tensor mainData, float playExpectedValue[13]) const
+Card KnowableState::ParsePrediction(const std::vector<tensorflow::Tensor>& outputs, float playExpectedValue[13]) const
 {
-  using namespace std;
   using namespace tensorflow;
-
-  std::vector<Tensor> outputs;
-  auto result = model.session->Run({{"main_data:0", mainData}}, {"expected_score/expected_score:0"}, {}, &outputs);
-  if (!result.ok()) {
-    printf("Tensorflow prediction failed: %s\n", result.error_message().c_str());
-    exit(1);
-  }
-
   Tensor prediction = outputs.at(0);
   assert(prediction.dims() == 2);
   assert(prediction.NumElements() == 52);
@@ -424,6 +407,21 @@ Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, tensorflo
   }
 
   return bestCard;
+}
+
+Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, const tensorflow::Tensor& mainData, float playExpectedValue[13]) const
+{
+  using namespace std;
+  using namespace tensorflow;
+
+  std::vector<Tensor> outputs;
+  auto result = model.session->Run({{"main_data:0", mainData}}, {"expected_score/expected_score:0"}, {}, &outputs);
+  if (!result.ok()) {
+    printf("Tensorflow prediction failed: %s\n", result.error_message().c_str());
+    exit(1);
+  }
+
+  return ParsePrediction(outputs, playExpectedValue);
 }
 
 static void Print5(FILE* out, float data[4]) {

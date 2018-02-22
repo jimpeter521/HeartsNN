@@ -30,6 +30,8 @@ using namespace tensorflow;
 
 tensorflow::SavedModelBundle gModel;
 
+const bool parallel = false;
+
 StrategyPtr makePlayer(const char* arg) {
   StrategyPtr player;
   if (arg == 0 || std::string(arg) == std::string("random")) {
@@ -37,7 +39,8 @@ StrategyPtr makePlayer(const char* arg) {
   }
   else if (std::string(arg) == std::string("simple")) {
     StrategyPtr intuition = StrategyPtr(new RandomStrategy());
-    player = StrategyPtr(new MonteCarlo(intuition, 50, 1000, 0.1));
+    AnnotatorPtr annotator(0);
+    player = StrategyPtr(new MonteCarlo(intuition, 1000, parallel, annotator));
   }
   else {
     SessionOptions session_options;
@@ -49,7 +52,7 @@ StrategyPtr makePlayer(const char* arg) {
     }
     StrategyPtr intuition = StrategyPtr(new DnnModelIntuition(gModel));
     AnnotatorPtr annotator(new DnnMonteCarloAnnotator(gModel));
-    player = StrategyPtr(new MonteCarlo(intuition, 50, 1000, 0.1, annotator));
+    player = StrategyPtr(new MonteCarlo(intuition, 100, parallel, annotator));
   }
   return player;
 }
@@ -137,7 +140,7 @@ void runGame(StrategyPtr players[4]) {
   deck.printDeal();
 
   GameState state(deck);
-  GameOutcome outcome = state.PlayGame(players);
+  GameOutcome outcome = state.PlayGame(players, generator);
 
   if (outcome.shotTheMoon()) {
     printf("Shot the moon!\n");

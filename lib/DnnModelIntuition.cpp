@@ -16,16 +16,27 @@
 using namespace std;
 using namespace tensorflow;
 
-DnnModelIntuition::~DnnModelIntuition() {}
-
-DnnModelIntuition::DnnModelIntuition(const tensorflow::SavedModelBundle& model)
-: mModel(model)
-{
+DnnModelIntuition::~DnnModelIntuition() {
+  printf("Deleting DnnModelIntuition\n");
+  delete mPredictor;
 }
 
-Card DnnModelIntuition::choosePlay(const KnowableState& state) const
+DnnModelIntuition::DnnModelIntuition(const tensorflow::SavedModelBundle& model, bool pooled)
+: mPredictor(0)
 {
+  if (pooled)
+    mPredictor = new PooledPredictor(model);
+  else
+    mPredictor = new SynchronousPredictor(model);
+}
+
+Card DnnModelIntuition::choosePlay(const KnowableState& state, const RandomGenerator& rng) const
+{
+  tensorflow::Tensor mainData = state.Transform();
+
+  std::vector<tensorflow::Tensor> outputs;
+  mPredictor->Predict(mainData, outputs);
+
   float playExpectedValue[13];
-  Card bestCard = state.TransformAndPredict(mModel, playExpectedValue);
-  return bestCard;
+  return state.ParsePrediction(outputs, playExpectedValue);
 }

@@ -5,15 +5,11 @@
 #include "lib/random.h"
 #include "lib/RandomStrategy.h"
 
-static RandomGenerator rng;
-
-const RandomStrategy* const RandomStrategy::gSingleton = new RandomStrategy;
-
 RandomStrategy::~RandomStrategy() {}
 
 RandomStrategy::RandomStrategy() {}
 
-Card RandomStrategy::choosePlay(const KnowableState& knowableState) const
+Card RandomStrategy::choosePlay(const KnowableState& knowableState, const RandomGenerator& rng) const
 {
   CardHand choices = knowableState.LegalPlays();
   return choices.aCardAtRandom(rng);

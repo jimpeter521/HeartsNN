@@ -147,7 +147,7 @@ public:
 
   Card NthCard(unsigned n) const;
 
-  Card aCardAtRandom(RandomGenerator& rng) const;
+  Card aCardAtRandom(const RandomGenerator& rng) const;
 
   bool operator==(const CardArray& other) const;
 

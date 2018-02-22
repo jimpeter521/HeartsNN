@@ -30,7 +30,7 @@ public:
 
   void Set(unsigned pointTricks[4], unsigned score[4]);
 
-  void updateMoonStats(unsigned currentPlayer, int iChoice, int moonCounts[13][kNumMoonCountKeys]);
+  void updateMoonStats(unsigned currentPlayer, int iChoice, int moonCounts[13][kNumMoonCountKeys]) const;
     // Moon counts is an aggregation across many outcomes for many legal play choices.
     // These method updates moonCounts for the this one outcome
 
@@ -46,6 +46,7 @@ public:
     // Return a score that is modified to favor players who play a smart defensive game that prevents shooting the moon.
     // This score is also zero mean as the above, but has a higher range, up to 18.5+stopTheMoonPenalty,
     // and goes below -6.5 for the player who stopped the moon, to as low as as -5.5-stopTheMoonPenalty.
+    // The full score range is -19.5 to 24.5.
 
   const bool shotTheMoon() const { return mShotTheMoon; }
   const bool stoppedTheMoon() const { return mStoppedTheMoon; }

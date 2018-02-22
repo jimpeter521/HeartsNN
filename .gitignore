@@ -1,6 +1,7 @@
-# We use CMake with Ninja, and can generate either debug or release builds
+# We use CMake with Ninja, and can generate either debug or release builds for CLI development, or an xcode build
 debug/
 release/
+xcode/
 
 # These are CMake artifacts that need not be checked in.
 CMakeCache.txt

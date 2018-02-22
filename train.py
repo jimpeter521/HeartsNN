@@ -244,7 +244,7 @@ if __name__ == '__main__':
     serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     evals = {}
-    for hidden_width in range(100,200,10):
+    for hidden_width in range(180,210,3):
         for hidden_depth in [1]:
             for activation in ['relu']:
                 for redundancy in [0]:
