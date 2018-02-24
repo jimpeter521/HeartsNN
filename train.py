@@ -12,6 +12,7 @@ import tensorflow as tf
 
 from model import model_fn
 from constants import *
+from learning_rate_hook import LearningRateHook
 
 ROOT_MODEL_DIR = './model_dir'
 
@@ -78,59 +79,12 @@ def get_input_fn(name, memmaps):
     iterator_initializer_hook = IteratorInitializerHook()
 
     nsamples = len(mainData)
-
-    p = get_input_fn._eval['p']
-    if p is None:
-        get_input_fn._eval['p'] = p = np.random.permutation(nsamples)
-
-    _batch = get_input_fn._eval['batch']
-    _steps = get_input_fn._eval['steps']
-
-    samples_this_eval = _batch * _steps
-    assert samples_this_eval <= nsamples
-
-    evals = nsamples // samples_this_eval
-    eval = get_input_fn._eval[name] % evals
-
-    if name == TRAINING and eval == 0:
-        get_input_fn._eval['p'] = p = np.random.permutation(nsamples)
-
-        if _batch*2 >= MAX_BATCH:
-            _batch = MAX_BATCH
-            _steps = nsamples // _batch
-        else:
-            if samples_this_eval*4 < nsamples:
-                # The usual case here. We can double the batch size and leave STEPS alone
-                _batch *= 2
-            elif _steps > 3:
-                # We shouldn't increase batch size without changing steps, or we'll stop processing up to half the data
-                # This may increase steps at first, from say 64 to something less than 128, but it will eventually
-                # reduce to 1.
-                _batch *= 2
-                _steps = nsamples // _batch
-                if _steps <= 1:
-                    _steps = 1
-                    _batch = nsamples
-            if _steps <= 16:
-                _batch = nsamples // _steps
-
-        print('********** Bumped batch to {}, steps to {}  **********'.format(_batch, _steps))
-
-        get_input_fn._eval['batch'] = _batch
-        get_input_fn._eval['steps'] = _steps
-        get_input_fn._eval[TRAINING] = 0
-        get_input_fn._eval[VALIDATION] = 0
+    assert nsamples == len(scoresData)
+    assert nsamples == len(winTrickProbs)
+    assert nsamples == len(moonProbData)
 
     def input_fn():
-        _batch = get_input_fn._eval['batch']
-        _steps = get_input_fn._eval['steps']
-
-        start = get_input_fn._eval[name] * _batch * _steps
-        get_input_fn._eval[name] += 1
-
-        batchSize = _batch if name == TRAINING else _batch*_steps
-
-        print('*** {} input_fn() here with batch {} and start {} ***'.format(name, batchSize, start))
+        p = np.random.permutation(nsamples)
 
         with tf.variable_scope('input_fn'):
             main_data_placeholder = tf.placeholder(tf.float32, batchShape(MAIN_INPUT_SHAPE), name=MAIN_DATA)
@@ -138,19 +92,17 @@ def get_input_fn(name, memmaps):
             win_trick_data_placeholder = tf.placeholder(tf.float32, batchShape(WIN_TRICK_PROBS_SHAPE), name=WIN_TRICK_PROB)
             moon_data_placeholder = tf.placeholder(tf.float32, batchShape(MOONPROBS_SHAPE), name=MOON_PROB)
 
-        p = get_input_fn._eval['p']
-        assert p is not None
         dataset = tf.data.Dataset.from_tensor_slices((main_data_placeholder, (scores_data_placeholder, win_trick_data_placeholder, moon_data_placeholder)))
         iterator_initializer_hook.iterator_initializer_func = \
             lambda sess: sess.run(
                 iterator.initializer,
-                feed_dict={main_data_placeholder: mainData[p][start:],
-                           scores_data_placeholder: scoresData[p][start:],
-                           win_trick_data_placeholder: winTrickProbs[p][start:],
-                           moon_data_placeholder: moonProbData[p][start:]
+                feed_dict={main_data_placeholder: mainData[p],
+                           scores_data_placeholder: scoresData[p],
+                           win_trick_data_placeholder: winTrickProbs[p],
+                           moon_data_placeholder: moonProbData[p]
                            })
-        dataset = dataset.repeat(1).batch(batchSize)
-        iterator = dataset.make_initializable_iterator()
+        iterator = dataset.batch(BATCH).make_initializable_iterator()
+
         (main, (scores, win_trick, moon)) = iterator.get_next()
 
         return {MAIN_DATA: main}, {EXPECTED_SCORE: scores, WIN_TRICK_PROB: win_trick, MOON_PROB: moon}
@@ -164,66 +116,61 @@ def save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn):
     print('Saving checkpoint:', checkpoint, file=sys.stderr)
     estimator.export_savedmodel(export_dir_base, serving_input_receiver_fn, checkpoint_path=checkpoint)
 
-def train_with_params(train_memmaps, eval_memmaps, params, serving_input_receiver_fn=None, init_batch=1024, init_steps=64):
+def train_with_params(train_memmaps, eval_memmaps, params, serving_input_receiver_fn=None):
     hidden_depth = params['hidden_depth']
     hidden_width = params['hidden_width']
     activation = params['activation']
+    num_batches = params['num_batches']
+    threshold = params['threshold']
 
     model_dir_path = '{}/d{}w{}r{}_{}'.format(ROOT_MODEL_DIR, hidden_depth, hidden_width, redundancy, activation)
     os.makedirs(model_dir_path, exist_ok=True)
 
     params['model_dir_path'] = model_dir_path
 
-    config = tf.estimator.RunConfig(keep_checkpoint_max=20, save_summary_steps=init_steps)
-    estimator = tf.estimator.Estimator(model_fn=model_fn, params=params, model_dir=model_dir_path, config=config)
+    train_input_fn, train_iterator_initializer_hook = get_input_fn(TRAINING, train_memmaps)
+    eval_input_fn, eval_iterator_initializer_hook = get_input_fn(VALIDATION, eval_memmaps)
 
-    first_backstep_loss = None
-    BACKSTEP_LIMIT = 5
+    config = tf.estimator.RunConfig(keep_checkpoint_max=20, save_summary_steps=num_batches, save_checkpoints_steps=num_batches)
+
+    losses = {
+        'total_loss': 'total_loss/total_loss:0',
+        'win_trick_prob_loss': 'win_trick_prob_loss/win_trick_prob_loss:0',
+        'moon_prob_loss': 'moon_prob_loss/moon_prob_loss:0',
+        'expected_score_loss': 'expected_score_loss/expected_score_loss:0'
+        }
+
     backsteps = 0
-    best_eval_loss = float('inf')
+    best_eval_loss = math.inf
 
-    get_input_fn._eval = {
-        TRAINING: 0,
-        VALIDATION: 0,
-        'batch': init_batch // 2,   # convenient to do this here, it will be doubled again the input_fn
-        'steps': init_steps,
-        'p': None
-    }
+    train_learning_rate_hook = LearningRateHook(losses, threshold=threshold, name='train')
+    eval_learning_rate_hook = LearningRateHook(losses, threshold=threshold, name='eval')
 
-    for epoch in range(0, EPOCHS):
-        train_input_fn, train_iterator_initializer_hook = get_input_fn(TRAINING, train_memmaps)
-        eval_input_fn, eval_iterator_initializer_hook = get_input_fn(VALIDATION, eval_memmaps)
-
-        _steps = get_input_fn._eval['steps']
-        estimator.train(train_input_fn, steps=_steps, hooks=[train_iterator_initializer_hook])
-        evaluation = estimator.evaluate(eval_input_fn, steps=1, hooks=[eval_iterator_initializer_hook])
-        print('{}/{}: Evaluation: {}'.format(epoch+1, EPOCHS, evaluation), file=sys.stderr)
+    estimator = tf.estimator.Estimator(model_fn=model_fn, params=params, model_dir=model_dir_path, config=config)
+    while train_learning_rate_hook.ok() and eval_learning_rate_hook.ok():
+        estimator.train(train_input_fn, steps=num_batches, hooks=[train_iterator_initializer_hook, train_learning_rate_hook])
+        evaluation = estimator.evaluate(eval_input_fn, steps=num_batches, hooks=[eval_iterator_initializer_hook, eval_learning_rate_hook])
         eval_loss = evaluation['loss']
         if best_eval_loss > eval_loss:
+            backsteps = 0
             best_eval_loss = eval_loss
             best_eval = evaluation
-            if backsteps > 0:
-                print('Recovered from backstep with new best loss:{}'.format(best_eval_loss), file=sys.stderr)
-                backsteps = 0
             save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn)
-        elif backsteps < BACKSTEP_LIMIT:
-            backsteps += 1
-            print('Evaluation backstep:', backsteps, file=sys.stderr)
-            if first_backstep_loss is None:
-                first_backstep_loss = best_eval_loss
-        else:
+            print("New best eval loss:", best_eval_loss)
+        elif backsteps >= 5:
             break
+        else:
+            backsteps += 1
+            print("Backstep {}: Current loss {} is worse that prior best loss {}".format(backsteps, eval_loss, best_eval_loss))
 
-    save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn)
-    delta = None if first_backstep_loss is None else 100 * (first_backstep_loss - best_eval_loss) / first_backstep_loss
-    return {'best_eval': best_eval, 'first_backstep_loss': first_backstep_loss, 'delta': delta}
+    return best_eval
 
 if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)
 
     # TODO: Make this a command line option
-    # if os.path.isdir(ROOT_MODEL_DIR):
-    #     shutil.rmtree(ROOT_MODEL_DIR)
+    if os.path.isdir(ROOT_MODEL_DIR):
+        shutil.rmtree(ROOT_MODEL_DIR)
 
     dataDir = 'xx.m' if len(sys.argv)==1 else sys.argv[1]
 
@@ -243,8 +190,12 @@ if __name__ == '__main__':
     }
     serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
+    num_batches = 1 +( len(eval_memmaps[0]) // BATCH)
+    threshold = num_batches*5
+    print('num_batches, threshold:', num_batches, threshold)
+
     evals = {}
-    for hidden_width in range(180,210,3):
+    for hidden_width in range(180,210,1):
         for hidden_depth in [1]:
             for activation in ['relu']:
                 for redundancy in [0]:
@@ -253,8 +204,10 @@ if __name__ == '__main__':
                         'hidden_width': hidden_width,
                         'activation': activation,
                         'redundancy': redundancy,
+                        'num_batches': num_batches,
+                        'threshold': threshold,
                     }
-                    results = train_with_params(train_memmaps, eval_memmaps, params, serving_input_receiver_fn=serving_input_receiver_fn, init_batch=BATCH, init_steps=STEPS)
+                    results = train_with_params(train_memmaps, eval_memmaps, params, serving_input_receiver_fn=serving_input_receiver_fn)
                     evals['d{}w{}r{}_{}'.format(hidden_depth, hidden_width, redundancy, activation)] = results
 
     for k, v in evals.items():

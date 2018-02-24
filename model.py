@@ -106,6 +106,7 @@ def model_fn(features, labels, mode, params={}):
     hidden_width = params['hidden_width']
     hidden_depth = params['hidden_depth']
     redundancy = params['redundancy']
+    num_batches = params['num_batches']
     activation = activation_fn(params['activation'])
 
     mainData = features[MAIN_DATA]
@@ -182,7 +183,7 @@ def model_fn(features, labels, mode, params={}):
 
     assert labels is not None
 
-    scalars = {'$$$': tf.constant(mode, dtype=tf.string)}
+    scalars = {}
 
     if SCORE:
       with tf.variable_scope('expected_score_loss'):
@@ -193,7 +194,7 @@ def model_fn(features, labels, mode, params={}):
           expected_score_loss = tf.divide(expected_score_squared_sum, num_legal)
           expected_score_loss = tf.log(expected_score_loss)
           # Finally divide the log by 2 so we are using log of RMSE.
-          expected_score_loss = tf.divide(expected_score_loss, 2.0, name='log_expected_score_loss')
+          expected_score_loss = tf.divide(expected_score_loss, 2.0, name='expected_score_loss')
           tf.summary.scalar('expected_score_loss', expected_score_loss)
           scalars[EXPECTED_SCORE] = expected_score_loss
 
@@ -206,7 +207,7 @@ def model_fn(features, labels, mode, params={}):
           win_trick_prob_loss = tf.divide(win_trick_prob_squared_sum, num_legal)
           win_trick_prob_loss = tf.log(win_trick_prob_loss)
           # Finally divide the log by 2 so we are using log of RMSE.
-          win_trick_prob_loss = tf.divide(win_trick_prob_loss, 2.0, name='log_win_trick_prob_loss')
+          win_trick_prob_loss = tf.divide(win_trick_prob_loss, 2.0, name='win_trick_prob_loss')
           tf.summary.scalar('win_trick_prob_loss', win_trick_prob_loss)
           scalars[WIN_TRICK_PROB] = win_trick_prob_loss
 
@@ -217,7 +218,7 @@ def model_fn(features, labels, mode, params={}):
           moon_prob_losses = tf.multiply(kldiverg, legalPlays, 'masked')
           moon_prob_loss = tf.reduce_sum(moon_prob_losses, name='moon_prob_loss_sum')
           moon_prob_loss = tf.divide(moon_prob_loss, num_legal, name='moon_prob_loss_mean')
-          moon_prob_loss = tf.log(moon_prob_loss, name='log_moon_prob_loss')
+          moon_prob_loss = tf.log(moon_prob_loss, name='moon_prob_loss')
           tf.summary.scalar('moon_prob_loss', moon_prob_loss)
           scalars[MOON_PROB] = moon_prob_loss
 
@@ -229,17 +230,20 @@ def model_fn(features, labels, mode, params={}):
           total_loss = tf.add(total_loss, win_trick_prob_loss)
         if MOON:
           total_loss = tf.add(total_loss, moon_prob_loss)
+        total_loss = tf.add(total_loss, 0.0, name='total_loss')
+        tf.summary.scalar('total_loss', total_loss)
 
     scalars['total_loss'] = total_loss
+
     optimizer = tf.train.AdamOptimizer()
     train_op = optimizer.minimize(loss=total_loss, global_step=tf.train.get_global_step())
 
     model_dir_path = params['model_dir_path']
     assert model_dir_path is not None
 
-    logging_hook = tf.train.LoggingTensorHook(scalars, every_n_iter=1)
+    logging_hook = tf.train.LoggingTensorHook(scalars, every_n_iter=num_batches)
 
-    summary_hook = tf.train.SummarySaverHook(output_dir= model_dir_path + '/eval', save_steps=1,
+    summary_hook = tf.train.SummarySaverHook(output_dir= model_dir_path + '/eval', save_steps=num_batches,
         scaffold=tf.train.Scaffold(summary_op=tf.summary.merge_all()))
 
     return tf.estimator.EstimatorSpec(mode=mode, loss=total_loss, train_op=train_op, export_outputs=export_outputs,
