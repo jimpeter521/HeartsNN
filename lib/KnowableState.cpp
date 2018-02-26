@@ -154,75 +154,6 @@ static int CountCardsHigherThan(const CardArray& cards, Card sentinel) {
   return cards.CountCardsWithMask(~mask);
 }
 
-void KnowableState::ComputeExtraFeatures(ExtraFeatures& extra) const
-{
-  const int kPlayNumber = PlayNumber();
-  const int kTrickNumber = kPlayNumber / 4;
-  const int kPlayInTrick = PlayInTrick();
-
-  // The following three features may be pointless, but it may be useful to give the NN a more direct sense
-  // of game and trick "time" than it can infer from other information.
-  // All three are in the range [0.0, 1.0]
-
-  // The last possible play where a player may have a choice is play #47.
-  extra.mPlayProgress = kPlayNumber / 47.0;
-
-  // The last trick is forced (#12, counting from zero), so we don't count it.
-  extra.mTricksProgess = kTrickNumber / 11.0;
-
-  // The last play in a trick is #3 (counting from zero)
-  extra.mInTrickProgress = kPlayInTrick / 3.0;
-
-  CardDeck remaining = UnplayedCardsNotInHand(mHand);
-
-  // 24 features in this loop
-  for (Suit suit=0; suit<kSuitsPerDeck; ++suit) {
-    const CardArray unplayedInSuit = remaining.CardsWithSuit(suit);
-    const CardArray myHandInSuit = mHand.CardsWithSuit(suit);
-
-    int guaranteedSluff = 0;
-    int guaranteedTake = 0;
-    if (unplayedInSuit.Size() == 0) {
-      // If the other players are all void in the suit, then all of my cards are guaranteed takes & sluffs
-      guaranteedSluff = guaranteedTake = myHandInSuit.Size();
-    } else {
-      Card lowestUnplayed = unplayedInSuit.FirstCard();
-      Card highestUnplayed = unplayedInSuit.LastCard();
-
-      // For each suit, number of cards in hand that are lower than any unplayed cards of the suit (guaranteed sluffs)
-      guaranteedSluff = CountCardsLowerThan(myHandInSuit, lowestUnplayed);
-
-      // For each suit, number of cards in hand that are higher than any unplayed cards of the suit (guaranteed takes)
-      guaranteedTake = CountCardsHigherThan(myHandInSuit, highestUnplayed);
-    }
-
-    // Normalize to size of hand, so that values are scaled similarly throughout the game
-    extra.mGuaranteedSluff[suit] = float(guaranteedSluff) / mHand.Size();
-    extra.mGuaranteedTake[suit] = float(guaranteedTake) / mHand.Size();
-    // For each suit, the min of these two numbers. When greater than zero, the suit is strong and flexible
-    extra.mStength[suit] = std::min(extra.mGuaranteedSluff[suit], extra.mGuaranteedTake[suit]);
-
-    int forcedTake = 0;
-    int forcedAllows = 0;
-    if (myHandInSuit.Size() > 0) {
-      const Card lowestUnplayed = myHandInSuit.FirstCard();
-      const Card highestUnplayed = myHandInSuit.LastCard();
-
-      // For each suit, number of unplayed cards lower than my lowest card of the suit (a crude measure of forced takes)
-      forcedTake = CountCardsLowerThan(unplayedInSuit, lowestUnplayed);
-
-      // For each suit, number of unplayed cards that are higher than my highest cards of the suit (a crude measure of forced allows)
-      forcedAllows = CountCardsHigherThan(unplayedInSuit, highestUnplayed);
-    }
-    // Normalize to number of unplayed cards, so that values are scaled similarly throughout the game
-    extra.mForcedTake[suit] = float(forcedTake) / remaining.Size();
-    extra.mForcedAllow[suit] = float(forcedAllows) / remaining.Size();
-    // For each suit, the min of these two numbers. When greater than zero, the suit is weak, i.e has little control.
-    extra.mVulnerability[suit] = std::min(extra.mForcedTake[suit], extra.mForcedAllow[suit]);
-  }
-}
-
-
 static float normalizeScore(float s) {
   return s * 19.5;
 }
@@ -252,8 +183,6 @@ tensorflow::Tensor KnowableState::Transform() const
     delete analyzer;
     distribution.AsProbabilities(prob);
   #endif
-
-  assert(kNumExtraFeatures == 33);
 
   Tensor mainData(DT_FLOAT, TensorShape({1, kNumFeatures}));
   auto matrix = mainData.matrix<float>();
@@ -316,10 +245,6 @@ tensorflow::Tensor KnowableState::Transform() const
 
   assert(index == 52*7);
 
-  // The following code fills 9 slots in the feature vector. These 8 features are "extra" features,
-  // but they are not currently part of the `ExtraFeatures` struct.
-  // TODO: Consolidate them into the ExtraFeatures struct.
-
   const unsigned totalPointsTaken = PointsPlayed();
   const bool pointsBroken = totalPointsTaken > 0;
   const bool pointsSplit = PointsSplit();
@@ -338,7 +263,6 @@ tensorflow::Tensor KnowableState::Transform() const
     unsigned pointsForThisPlayer = GetScoreFor(player);
     if (p>0  && pointsForThisPlayer==totalPointsTaken)
       otherPlayerCanShoot = true;
-    matrix(0, index++) = GetScoreFor(player) / 26.0;    // Points so far for the 4 players, rotated so current player is first.
   }
 
   unsigned pointsOnTheTable = 0;
@@ -346,31 +270,6 @@ tensorflow::Tensor KnowableState::Transform() const
   	Card card = GetTrickPlay(p);
   	pointsOnTheTable += PointsFor(card);
   }
-  matrix(0, index++) = pointsOnTheTable / 26.0;    // The scaled points face up on the table.
-
-  if (!pointsBroken) {
-    assert(!pointsSplit);
-  } else if (pointsSplit) {
-    assert(pointsBroken);
-    assert(!currentPlayerCanShoot);
-    assert(!otherPlayerCanShoot);
-  } else if (!pointsSplit) {
-    assert(pointsBroken);
-    assert(otherPlayerCanShoot != currentPlayerCanShoot);
-    assert(otherPlayerCanShoot || currentPlayerCanShoot);
-  }
-
-  matrix(0, index++) = oneIfTrue(!pointsSplit);
-  matrix(0, index++) = oneIfTrue(pointsSplit);
-  matrix(0, index++) = oneIfTrue(currentPlayerCanShoot);
-  matrix(0, index++) = oneIfTrue(otherPlayerCanShoot);
-
-  assert(index == kNumFeatures - kNumExtraFeatures);
-
-  ExtraFeatures extra_features;
-  ComputeExtraFeatures(extra_features);
-
-  extra_features.AppendTo(matrix, index);
 
   assert(index == kNumFeatures);
 
@@ -422,42 +321,4 @@ Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, const ten
   }
 
   return ParsePrediction(outputs, playExpectedValue);
-}
-
-static void Print5(FILE* out, float data[4]) {
-  float total = data[0] + data[1] + data[2] + data[3];
-  fprintf(out, "%3.2f %3.2f %3.2f %3.2f %3.2f\n", data[0], data[1], data[2], data[3], total);
-}
-
-void KnowableState::ExtraFeatures::Print(FILE* out) {
-  fprintf(out, "%3.2f %3.2f %3.2f\n", mPlayProgress, mTricksProgess, mInTrickProgress);
-  Print5(out, mGuaranteedSluff);
-  Print5(out, mGuaranteedTake);
-  Print5(out, mStength);
-  Print5(out, mForcedTake);
-  Print5(out, mForcedAllow);
-  Print5(out, mVulnerability);
-}
-
-static void Append5(Eigen::TensorMap<Eigen::Tensor<float, 2, 1, long>, 16, Eigen::MakePointer> m, int &index, float f[4])
-{
-  float total = 0;
-  for (int i=0; i<4; ++i) {
-    total += f[i];
-    m(0, index++) = f[i];
-  }
-  m(0, index++) = total;
-}
-
-void KnowableState::ExtraFeatures::AppendTo(Eigen::TensorMap<Eigen::Tensor<float, 2, 1, long>, 16, Eigen::MakePointer> m, int &index)
-{
-  m(0, index++) = mPlayProgress;
-  m(0, index++) = mTricksProgess;
-  m(0, index++) = mInTrickProgress;
-  Append5(m, index, mGuaranteedSluff);
-  Append5(m, index, mGuaranteedTake);
-  Append5(m, index, mStength);
-  Append5(m, index, mForcedTake);
-  Append5(m, index, mForcedAllow);
-  Append5(m, index, mVulnerability);
 }

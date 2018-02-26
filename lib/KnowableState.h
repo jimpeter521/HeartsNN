@@ -17,6 +17,10 @@ namespace tensorflow {
 class KnowableState : public HeartsState
 {
 public:
+  static const int kNumFeaturesPerCard = 10;
+  static const int kNumFeatures = kNumFeaturesPerCard * kCardsPerDeck;
+
+public:
   KnowableState(const GameState& other);
 
   GameState HypotheticalState() const;
@@ -44,39 +48,6 @@ public:
   Card TransformAndPredict(const tensorflow::SavedModelBundle& model, float playExpectedValue[13]) const;
 
   Card ParsePrediction(const std::vector<tensorflow::Tensor>& outputs, float playExpectedValue[13]) const;
-
-  struct ExtraFeatures {
-    float mPlayProgress;
-    float mTricksProgess;
-    float mInTrickProgress;
-    float mGuaranteedSluff[4];
-    float mGuaranteedTake[4];
-    float mStength[4];
-    float mForcedTake[4];
-    float mForcedAllow[4];
-    float mVulnerability[4];
-
-    float mTotalGuaranteedSluff;
-    float mTotalGuaranteedTake;
-    float mTotalStrength;
-    float mTotalForcedTake;
-    float mTotalForcedAllow;
-    float mTotalVulnerability;
-
-    void Print(FILE* out);
-    void AppendTo(Eigen::TensorMap<Eigen::Tensor<float, 2, 1, long>, 16, Eigen::MakePointer> m, int &index);
-  };
-
-  void ComputeExtraFeatures(ExtraFeatures& extra) const;
-
-public:
-  static const int kNumPlayers = 4;
-  static const int kNumFeaturesPerCard = kNumPlayers + 3;
-  static const int kMoonFlagsLen = 4;
-  static const int kPlaysPerTrick = 4;
-  static const int kPointsExtraFeatures = kPlaysPerTrick + 1 + kMoonFlagsLen;
-  static const int kNumExtraFeatures = sizeof(ExtraFeatures) / sizeof(float);
-  static const int kNumFeatures = kNumFeaturesPerCard * kCardsPerDeck + kPointsExtraFeatures + kNumExtraFeatures;
 
 private:
   KnowableState();  // unimplemented

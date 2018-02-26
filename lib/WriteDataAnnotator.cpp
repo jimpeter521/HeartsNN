@@ -164,10 +164,5 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
              );
   }
 
-  fprintf(out, "--\n");
-  KnowableState::ExtraFeatures extra;
-  state.ComputeExtraFeatures(extra);
-  extra.Print(out);
-
   fprintf(out, "----\n");
 }
