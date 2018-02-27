@@ -275,6 +275,15 @@ void HeartsState::TrackTrickWinner(unsigned* trickWins)
   }
 }
 
+bool HeartsState::IsCardOnTable(Card card) const
+{
+  for (int i=0; i<PlayInTrick(); ++i) {
+    if (card == mPlays[i])
+      return true;
+  }
+  return false;
+}
+
 Card HeartsState::HighCardOnTable() const
 {
   if (PlayInTrick() == 0) {
@@ -310,4 +319,38 @@ bool HeartsState::MightCardTakeTrick(Card card) const
     Card highCard = HighCardOnTable();
     return RankOf(card) > RankOf(highCard);
   }
+}
+
+bool HeartsState::WillCardTakeTrick(Card card) const
+{
+  // Card can't take trick if it isn't following suit
+  if (PlayInTrick() != 0 && SuitOf(card) != mTrickSuit) {
+    return false;
+  }
+
+  const CardDeck unplayedInSuit = UnplayedCardsNotInHand(CurrentPlayersHand()).CardsWithSuit(SuitOf(card));
+  const bool cardIsHigherThanAnyUnplayed = unplayedInSuit.Size()==0 || card > unplayedInSuit.LastCard();
+
+  // If we are leading, we can only force taking the trick if we play a card higher than any unplayed card in suit
+  if (PlayInTrick() == 0) {
+    return cardIsHigherThanAnyUnplayed;
+  }
+
+  const Card highCard = HighCardOnTable();
+
+  // If we are last in trick, we just have to beat the high card on table.
+  if (PlayInTrick() == 3) {
+    return RankOf(card) > RankOf(highCard);
+  }
+
+  // Otherwise, we have to beat high card on table and be higher than any unplayed
+  return cardIsHigherThanAnyUnplayed && RankOf(card) > RankOf(highCard);
+}
+
+unsigned HeartsState::PointsOnTable() const
+{
+  unsigned points = 0;
+  for (int i=0; i<PlayInTrick(); ++i)
+    points += PointsFor(mPlays[i]);
+  return points;
 }

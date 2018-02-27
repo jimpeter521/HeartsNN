@@ -39,6 +39,16 @@ public:
     // false if the card is not in trick suit or is less than the high card in trick so far.
     // A true means the card is not ruled out from taking trick, but does not guarantee it will.
 
+  bool WillCardTakeTrick(Card card) const;
+    // True if this legal play card is guaranteed to take the current trick.
+    // False if card is not in trick suit, or is less than unplayed cards in the suit.
+
+  bool IsCardOnTable(Card card) const;
+    // True if card is currently face up on table in current trick
+
+  unsigned PointsOnTable() const;
+    // Return the number of points for cards currently face up on the table
+
   // Trick relative
   unsigned PlayerLeadingTrick() const { return mLead; }
   unsigned PlayInTrick() const { return mNextPlay % 4; }

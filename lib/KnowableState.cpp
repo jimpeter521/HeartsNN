@@ -162,6 +162,266 @@ float oneIfTrue(bool x) {
   return x ? 1.0 : 0.0;
 }
 
+// enum FeatureColumns
+// {
+//   eLegalPlay,
+//   eCardProbPlayer0,
+//   eCardProbPlayer1,
+//   eCardProbPlayer2,
+//   eCardProbPlayer3,
+//   eCardPoints,
+//   eCardOnTable,
+//   eCardIsHighCardInTrick,
+//   ePlayerNotRuledOutForMoon,
+//   eOtherNotRuledOutForMoon,
+// };
+
+FloatMatrix KnowableState::AsFloatMatrix() const
+{
+  FloatMatrix result(kCardsPerDeck, kNumFeaturesPerCard);
+  result.setZero();
+
+  // Fill column eLegalPlay
+  const CardHand choices = LegalPlays();
+  {
+    CardHand::iterator it(choices);
+    while (!it.done()) {
+      Card card = it.next();
+      result(card, eLegalPlay) = 1.0;
+    }
+  }
+
+  // Fill four columns eCardProbPlayer0 .. eCardProbPlayer3
+  float prob[52][4];
+  AsProbabilities(prob);
+  for (int p=0; p<4; p++) {
+    int player = (CurrentPlayer() + p) % 4;
+    for (Card card=0; card<52; card++) {
+      result(card, eCardProbPlayer0+p) = prob[card][player];
+    }
+  }
+
+  // Fill column eCardPoints
+  for (Card card=0; card<52; ++card) {
+  	unsigned pointValue = PointsFor(card);
+  	if (pointValue>0 && (UnplayedCards().HasCard(card) || IsCardOnTable(card))) {
+    	result(card, eCardPoints) = float(pointValue) / 26.0;
+    }
+  }
+
+  // Fill column eCardOnTable
+  for (int i=0; i<PlayInTrick(); ++i) {
+    Card card = GetTrickPlay(i);
+    result(card, eCardOnTable) = 1.0;
+  }
+
+  // Fill column eCardIsHighCardInTrick
+  if (PlayInTrick() > 0)
+    result(HighCardOnTable(), eCardIsHighCardInTrick) = 1.0;
+
+  // ePlayerNotRuledOutForMoon and eOtherNotRuledOutForMoon
+  // There are several cases to consider, which we handle in separate helper functions
+  const unsigned totalPointsTaken = PointsPlayed();
+  if (PointsSplit()) {
+    // Nothing to do, leave the two feature columns all zeros
+  } else if (totalPointsTaken == 0) {
+    FillRuledOutForMoonColumnsWhenNoPointsTaken(choices, result);
+  } else {
+    assert(totalPointsTaken>0 && !PointsSplit());
+    const bool currentPlayerCanShoot = GetScoreFor(CurrentPlayer()) == totalPointsTaken;
+    if (currentPlayerCanShoot) {
+      FillRuledOutForMoonColumnsWhenOtherPlayerRuledOut(choices, result);
+    } else {
+      FillRuledOutForMoonColumnsWhenCurrentPlayerRuledOut(choices, result);
+    }
+  }
+
+  return result;
+}
+
+void KnowableState::FillRuledOutForMoonColumnsWhenNoPointsTaken(const CardHand& choices, FloatMatrix& result) const
+{
+  if (PlayInTrick() == 0)
+  {
+    // No points played, and we are leading.
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // Since no points are taken, we typically won't be able to lead with a point card,
+      // except when we are only holding point cards.
+      // If we lead with a non-point card, neither player is ruled out out.
+      if (PointsFor(card)==0)
+      {
+        result(card, ePlayerNotRuledOutForMoon) = 1.0;
+        result(card, eOtherNotRuledOutForMoon) = 1.0;
+      }
+      else
+      {
+        // If in the rare case that we are forced to lead with a point card,
+        // -- we rule the current player out if the play is a point card not guaranteed to take the trick
+        // -- we rule others out if we play a point card guaranteed to take the trick
+        // But note that the feature vector is "not ruled out", so we have to invert the above logic:
+        // -- The current player is not ruled out if we lead with a forcing card
+        // -- The other player is not ruled out if we lead with a non-forcing card
+        result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(WillCardTakeTrick(card));
+        result(card, eOtherNotRuledOutForMoon) = oneIfTrue(!WillCardTakeTrick(card));
+      }
+    }
+  }
+  else if (PointsOnTable() > 0)
+  {
+    CardHand::iterator it(choices);
+    while (!it.done()) {
+      Card card = it.next();
+      // -- we don't rule ourselves out if we play a card that might take the trick.
+      result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(MightCardTakeTrick(card));
+      // -- we don't rule other players out if we can play a card that doesn't guarantee taking the trick.
+      result(card, eOtherNotRuledOutForMoon) = oneIfTrue(!WillCardTakeTrick(card));
+    }
+  }
+  else
+  {
+    // No points played in either past tricks, or on the table, and we are NOT leading.
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // If there are no points in play
+      // -- No one is ruled out if we play a non-point card
+      if (PointsFor(card) == 0) {
+        result(card, ePlayerNotRuledOutForMoon) = 1.0;
+        result(card, eOtherNotRuledOutForMoon) = 1.0;
+      }
+      else if (SuitOf(card) == kHearts)
+      {
+        // -- we rule ourselves out by playing sluffing a heart, but do not rule out others
+        result(card, ePlayerNotRuledOutForMoon) = 0.0;
+        result(card, eOtherNotRuledOutForMoon) = 1.0;
+      }
+      else
+      {
+        assert(card == CardFor(kQueen, kSpades));
+        // -- if we play the queen of spades:
+        if (TrickSuit() == kSpades)
+        {
+          // ---- if trick suit is spades:
+          // current player is not ruled out if the queen might take the trick
+          result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(MightCardTakeTrick(card));
+          // other player is not ruled out if the queen is not guranteed to take the trick
+          result(card, eOtherNotRuledOutForMoon) = oneIfTrue(!WillCardTakeTrick(card));
+        }
+        else
+        {
+          // ---- if trick suit is not spades:
+          // By sluffing the queen, the current player is ruled out
+          result(card, ePlayerNotRuledOutForMoon) = 0.0;
+          // but other player is not yet ruled out
+          result(card, eOtherNotRuledOutForMoon) = 1.0;
+        }
+      }
+    }
+  }
+}
+
+void KnowableState::FillRuledOutForMoonColumnsWhenOtherPlayerRuledOut(const CardHand& choices, FloatMatrix& result) const
+{
+  assert(PointsPlayed() > 0);
+  assert(GetScoreFor(CurrentPlayer()) == PointsPlayed());
+  if (PlayInTrick() == 0)
+  {
+    // The current player is leading.
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We don't rule ourself out if we play a non-point card or we play a forcing point card
+      result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(PointsFor(card)==0 || WillCardTakeTrick(card));
+    }
+  }
+  else if (PointsOnTable() == 0)
+  {
+    // The current player is following, and no points are on table
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We don't rule ourselves out if we play a non-point card
+      result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(PointsFor(card)==0);
+    }
+  }
+  else
+  {
+    // The current player is following, and points are on table
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We don't rule ourselves out if we play a card that might take the trick
+      result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(MightCardTakeTrick(card));
+    }
+  }
+}
+
+void KnowableState::FillRuledOutForMoonColumnsWhenCurrentPlayerRuledOut(const CardHand& choices, FloatMatrix& result) const
+{
+  assert(PointsPlayed() > 0);
+  assert(GetScoreFor(CurrentPlayer()) == 0);
+
+  const Card kNoSuchCard = 99u;
+  Card otherPlayersPlay = kNoSuchCard;
+  for (int p=0; p<PlayInTrick(); p++)
+  {
+    int player = (PlayerLeadingTrick()+p) % 4;
+    if (GetScoreFor(player) != 0) {
+      otherPlayersPlay = GetTrickPlay(p);
+    }
+  }
+
+  if (PlayInTrick() == 0)
+  {
+    assert(otherPlayersPlay == kNoSuchCard);
+    // The current player is leading.
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We don't rule out the other player if we don't play a forcing card
+      result(card, eOtherNotRuledOutForMoon) = oneIfTrue(!WillCardTakeTrick(card));
+    }
+  }
+  else if (PointsOnTable() == 0)
+  {
+    // The current player is following, and no points are on table
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We rule out the other player if we can play a point card and know the other player cannot win the trick.
+      // The other player can't win the trick only if they already have a card on the table that can't win the trick.
+      result(card, eOtherNotRuledOutForMoon) = oneIfTrue(PointsFor(card)==0 || otherPlayersPlay==kNoSuchCard || !MightCardTakeTrick(card));
+    }
+  }
+  else
+  {
+    // The current player is following, and points are on table
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We can rule out the other player if we can force taking the trick,
+      // or if we can tell that the other player already lost the trick.
+      if (otherPlayersPlay != kNoSuchCard) {
+        // The other player already has their card on the table
+        result(card, eOtherNotRuledOutForMoon) = oneIfTrue(otherPlayersPlay==HighCardOnTable() && !MightCardTakeTrick(card));
+      } else {
+        result(card, eOtherNotRuledOutForMoon) = oneIfTrue(!WillCardTakeTrick(card));
+      }
+    }
+  }
+}
+
+
 tensorflow::Tensor KnowableState::Transform() const
 {
   using namespace std;
@@ -188,15 +448,12 @@ tensorflow::Tensor KnowableState::Transform() const
   auto matrix = mainData.matrix<float>();
 
   // Clear the entire feature vector to all zeros.
-  int index = 0;
-  for (; index<kNumFeatures; index++) {
-    matrix(0, index) = 0;
-  }
+  matrix.setZero();
 
   // Fill the "distribution", the p(hascard | card,player)
   // This must be filled such that the current player is first, then other players in normal order.
   // This fills the first four "feature columns" of 52 elements each.
-  index = 0;
+  int index = 0;
   for (int p=0; p<4; p++) {
     int player = (CurrentPlayer() + p) % 4;
     for (int i=0; i<52; i++) {
@@ -245,15 +502,8 @@ tensorflow::Tensor KnowableState::Transform() const
 
   assert(index == 52*7);
 
-  const unsigned totalPointsTaken = PointsPlayed();
-  const bool pointsBroken = totalPointsTaken > 0;
   const bool pointsSplit = PointsSplit();
-  if (!pointsBroken) {
-    assert(!pointsSplit);
-  }
-  if (pointsSplit) {
-    assert(pointsBroken);
-  }
+  const unsigned totalPointsTaken = PointsPlayed();
 
   const bool currentPlayerCanShoot = GetScoreFor(CurrentPlayer()) == totalPointsTaken;
 

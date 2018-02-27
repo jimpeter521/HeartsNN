@@ -14,6 +14,26 @@ namespace tensorflow {
   struct SavedModelBundle;
 };
 
+// Doc for Eigen::Tensor is https://bitbucket.org/eigen/eigen/src/de7544f256bdeb135f7d016e2ddf344a9e0406eb/unsupported/Eigen/CXX11/src/Tensor/README.md
+typedef Eigen::Tensor<float, 2, Eigen::RowMajor>  FloatMatrix;
+
+// One prediction input is a FloatMatrix with 52 rows and 10 columns
+// FloatMatrix predictionInput(52, 10)
+
+enum FeatureColumns
+{
+  eLegalPlay,
+  eCardProbPlayer0,
+  eCardProbPlayer1,
+  eCardProbPlayer2,
+  eCardProbPlayer3,
+  eCardPoints,
+  eCardOnTable,
+  eCardIsHighCardInTrick,
+  ePlayerNotRuledOutForMoon,
+  eOtherNotRuledOutForMoon,
+};
+
 class KnowableState : public HeartsState
 {
 public:
@@ -42,6 +62,9 @@ public:
   tensorflow::Tensor Transform() const;
     // Transform this state into the the `mainData` tensor input for predict.
 
+  FloatMatrix AsFloatMatrix() const;
+    // Returns an Eigen3 maxtrix with kCardsPerDeck rows and kNumFeaturesPerCard columns
+
   Card Predict(const tensorflow::SavedModelBundle& model, const tensorflow::Tensor& mainData, float playExpectedValue[13]) const;
     // Run tensorflow prediction given the model and tensor input.
 
@@ -54,7 +77,10 @@ private:
 
   void VerifyKnowableState() const;
 
-private:
+  void FillRuledOutForMoonColumnsWhenNoPointsTaken(const CardHand& choices, FloatMatrix& result) const;
+  void FillRuledOutForMoonColumnsWhenOtherPlayerRuledOut(const CardHand& choices, FloatMatrix& result) const;
+  void FillRuledOutForMoonColumnsWhenCurrentPlayerRuledOut(const CardHand& choices, FloatMatrix& result) const;
 
+private:
   CardHand mHand;
 };
