@@ -14,7 +14,7 @@ def npBatchShape(shape):
     return (-1,) + shape
 
 def save_to_memmap(data, path, p=None):
-    """ Save a numpay array `data` as a memmap file to the given `path`. Optionally permute the data first."""
+    """ Save a numpy array `data` as a memmap file to the given `path`. Optionally permute the data first."""
     print('Writing:', path)
     fp = np.memmap(path, dtype='float32', mode='w+', shape=data.shape)
     if p is not None:
@@ -25,9 +25,9 @@ def save_to_memmap(data, path, p=None):
 
 def as_numpy(group):
     mainData = group['main']
-    scoresData = group['scores']
-    winTrickProbs = group['winTrick']
-    moonProbData = group['moonProb']
+    scoresData = group['score']
+    winTrickProbs = group['trick']
+    moonProbData = group['moon']
 
     nsamples = len(mainData)
     assert len(scoresData) == nsamples
@@ -54,8 +54,8 @@ def save_group(group, datasetDir):
     p = np.random.permutation(nsamples)
 
     save_to_memmap(mainData, f'{datasetDir}/main_data.np.mmap', p)
-    save_to_memmap(scoresData, f'{datasetDir}/scores_data.np.mmap', p)
-    save_to_memmap(winTrickProbs, f'{datasetDir}/win_trick_data.np.mmap', p)
+    save_to_memmap(scoresData, f'{datasetDir}/score_data.np.mmap', p)
+    save_to_memmap(winTrickProbs, f'{datasetDir}/trick_data.np.mmap', p)
     save_to_memmap(moonProbData, f'{datasetDir}/moon_data.np.mmap', p)
 
 def load_memmap(filePath, rowShape):
@@ -65,8 +65,8 @@ def load_memmap(filePath, rowShape):
 
 def load_dataset(dirPath):
     mainData = load_memmap(f'{dirPath}/main_data.np.mmap', MAIN_INPUT_SHAPE)
-    scoresData = load_memmap(f'{dirPath}/scores_data.np.mmap', SCORES_SHAPE)
-    winTrickProbs = load_memmap(f'{dirPath}/win_trick_data.np.mmap', WIN_TRICK_PROBS_SHAPE)
+    scoresData = load_memmap(f'{dirPath}/score_data.np.mmap', SCORES_SHAPE)
+    winTrickProbs = load_memmap(f'{dirPath}/trick_data.np.mmap', WIN_TRICK_PROBS_SHAPE)
     moonProbData = load_memmap(f'{dirPath}/moon_data.np.mmap', MOONPROBS_SHAPE)
 
     nsamples = len(mainData)
