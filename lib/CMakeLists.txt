@@ -23,6 +23,7 @@ add_library(lib STATIC
     TwoOpponentsGetSuit.cpp
     VoidBits.cpp
     WriteDataAnnotator.cpp
+    WriteTrainingDataSets.cpp
     combinatorics.cpp
     debug.cpp
     math.cpp

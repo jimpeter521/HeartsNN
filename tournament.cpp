@@ -212,9 +212,9 @@ struct Scores {
     for (int j=0; j<4; ++j) {
       StrategyPtr player = players[j];
       int playerIndex = player == gChampion ? 0 : 1;
-      mPlayer[playerIndex] += outcome.modifiedScore(j);
-      mPosition[j] += outcome.modifiedScore(j);
-      mCross[playerIndex][j] += outcome.modifiedScore(j);
+      mPlayer[playerIndex] += outcome.standardScore(j);
+      mPosition[j] += outcome.standardScore(j);
+      mCross[playerIndex][j] += outcome.standardScore(j);
     }
   }
 
@@ -249,7 +249,7 @@ void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, boo
     for (int i=0; i<4; ++i) {
       StrategyPtr player = players[i];
       int playerIndex = player == gChampion ? 0 : 1;
-      printf("%s=%5.1f ", name[playerIndex], outcome.modifiedScore(i));
+      printf("%s=%5.1f ", name[playerIndex], outcome.standardScore(i));
     }
     if (moon)
       printf("  Shot the moon!\n");

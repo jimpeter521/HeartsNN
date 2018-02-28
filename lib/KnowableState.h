@@ -15,6 +15,7 @@ namespace tensorflow {
 };
 
 // Doc for Eigen::Tensor is https://bitbucket.org/eigen/eigen/src/de7544f256bdeb135f7d016e2ddf344a9e0406eb/unsupported/Eigen/CXX11/src/Tensor/README.md
+typedef Eigen::Tensor<float, 1, Eigen::RowMajor>  FloatVector;
 typedef Eigen::Tensor<float, 2, Eigen::RowMajor>  FloatMatrix;
 
 // One prediction input is a FloatMatrix with 52 rows and 10 columns

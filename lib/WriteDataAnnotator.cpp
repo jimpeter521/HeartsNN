@@ -156,8 +156,8 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
     // We want to make it easy on our models to learn to predict appoximate number of points that can be taken.
     // We'll use the moonProb prediction to come the corrected score.
     const float kEpsilon = 0.001;  // a little fudge factor for inexact floating point.
-    assert(expectedScore[i] >= -6.5 - kEpsilon);
-    assert(expectedScore[i] <= 19.5 + kEpsilon);
+    assert(expectedScore[i] >=  0.0 - kEpsilon);
+    assert(expectedScore[i] <= 26.0 + kEpsilon);
 
     fprintf(out, "%3s  %5.4f %5.4f | %s %s %s\n", NameOf(card), expectedScore[i], winsTrickProb[i]
                , FixedPointToString(f[0]).c_str(), FixedPointToString(f[1]).c_str(), FixedPointToString(f[2]).c_str());

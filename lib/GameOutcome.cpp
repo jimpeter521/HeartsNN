@@ -92,22 +92,24 @@ void GameOutcome::updateMoonStats(unsigned currentPlayer, int iChoice, int moonC
 
 float GameOutcome::boringScore(unsigned currentPlayer) const {
   assert(mScores[currentPlayer] <= 26u);
-  float score = mScores[currentPlayer] - 6.5;
-  assert(score >= -6.5);
-  assert(score <= 19.5);
+  float score = mScores[currentPlayer];
+  assert(score >= 0.0);
+  assert(score <= 26.0);
   return score;
 }
 
-float GameOutcome::modifiedScore(unsigned currentPlayer) const
+float GameOutcome::standardScore(unsigned currentPlayer) const
 {
-  float score = boringScore(currentPlayer);
-  if (mShotTheMoon) {
-    unsigned myScore = mScores[currentPlayer];
-    if (myScore == kExpectedTotal) {
-      score -= 39.0;
-    } else {
-      score += 13.0;
-    }
+  assert(mScores[currentPlayer] <= 26u);
+  if (!mShotTheMoon)
+  {
+    return boringScore(currentPlayer) - 6.5;
   }
-  return score;
+  else
+  {
+    if (mScores[currentPlayer] == 26u)
+      return -19.5;
+    else
+      return 6.5;
+  }
 }

@@ -150,11 +150,12 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState, const RandomGene
   float expectedScore[13];
 
   // TODO: Better name, this does more than compute probabilities.
-  Card bestPlay = totalStats.ComputeProbabilities(choices, moonProb, winsTrickProb, expectedScore, kModifiedScore);
+  Card bestPlay = totalStats.ComputeProbabilities(choices, moonProb, winsTrickProb, expectedScore, kStandardScore);
 
   const AnnotatorPtr annotator = getAnnotator();
   if (annotator) {
-    totalStats.ComputeProbabilities(choices, moonProb, winsTrickProb, expectedScore, kBoringScore);
+    float offset = float(knowableState.GetScoreFor(knowableState.CurrentPlayer()));
+    totalStats.ComputeProbabilities(choices, moonProb, winsTrickProb, expectedScore, kBoringScore, offset);
     annotator->OnWriteData(knowableState, analyzer, expectedScore, moonProb, winsTrickProb);
   }
 
@@ -185,16 +186,16 @@ void MonteCarlo::Stats::UntrackTrickWinner(GameState& next) {
 }
 
 const float kScoreTypeOffsets[kNumScoreTypes][kNumMoonCountKeys] = {
-  { 0.0, 0.0 },                                     // kBoringScore
-  { -39.0, 13.0 },                                      // kStandardScore
-  { -39.0, 13.0 }, // kModifiedScore
+  { 0.0, 0.0 },     // kBoringScore
+  { -39.5, 13.0 },   // kStandardScore
 };
 
 Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
                         , float moonProb[13][kNumMoonCountKeys+1]
                         , float winsTrickProb[13]
                         , float expectedScore[13]
-                        , ScoreType scoreType) const
+                        , ScoreType scoreType
+                        , float offset) const
 {
   const float kScale = 1.0 / mTotalAlternates;
   for (unsigned i=0; i<choices.Size(); ++i) {
@@ -207,7 +208,7 @@ Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
   }
 
   assert(scoreType>=kBoringScore);
-  assert(scoreType<=kModifiedScore);
+  assert(scoreType<kNumScoreTypes);
   const float* kScoreOffset = kScoreTypeOffsets[scoreType];
 
   const float kEpsilon = 0.001;  // a little fudge factor for inexact floating point.
@@ -215,26 +216,24 @@ Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
   float bestScore = 1e10;
   for (unsigned i=0; i<choices.Size(); ++i) {
     float score = scores[i] * kScale;
-    assert(score >= -6.5 - kEpsilon);
-    assert(score <= 19.5 + kEpsilon);
+
+    if (scoreType == kStandardScore)
+      score -= 6.5;
 
     for (unsigned j=0; j<kNumMoonCountKeys; ++j) {
       score += kScoreOffset[j] * moonProb[i][j];
     }
 
     if (scoreType == kBoringScore) {
-      assert(score >= -6.5 - kEpsilon);
-      assert(score <= 19.5 + kEpsilon);
-    } else if (scoreType == kModifiedScore) {
-      assert(score >= -19.5 - kEpsilon);
-      assert(score <=  24.5 + kEpsilon);
+      assert(score >= 0.0   - kEpsilon);
+      assert(score <= 26.0  + kEpsilon);
     } else {
       assert(scoreType == kStandardScore);
       assert(score >= -19.5 - kEpsilon);
       assert(score <=  18.5 + kEpsilon);
     }
 
-    expectedScore[i] = score;
+    expectedScore[i] = score - offset;
     if (bestScore > score) {
       bestScore = score;
       bestChoice = i;

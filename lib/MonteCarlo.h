@@ -19,15 +19,8 @@ enum ScoreType {
     // The standard score, taking into account shooting the moon.
     // This score is in the range of -19.5 to 18.5.
 
-  kModifiedScore = 2,
-    // A score that is modified to favor players who play a smart defensive game that prevents shooting the moon.
-    // This score is also zero mean as the above, but has a higher range, up to 18.5+kStopTheMoonPenalty,
-    // and goes below -6.5 for the player who stopped the moon, to as low as as -5.5-kStopTheMoonPenalty.
-    // kStopTheMoonPenalty is currently hard coded to 6.0.
-    // The full score range is -19.5 to 24.5.
-
-  kNumScoreTypes = 3,
-    // This is not a score type, but instead is the constant 3, the number of different score types.
+  kNumScoreTypes = 2,
+    // This is not a score type, but instead is the number of different score types.
 };
 
 class MonteCarlo : public Strategy
@@ -79,7 +72,8 @@ private:
                             , float moonProb[13][kNumMoonCountKeys+1]
                             , float winsTrickProb[13]
                             , float expectedScore[13]
-                            , ScoreType scoreType) const;
+                            , ScoreType scoreType
+                            , float offset=0.0) const;
   private:
     unsigned mNumLegalPlays;
 
