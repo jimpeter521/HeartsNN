@@ -240,7 +240,6 @@ void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, boo
   GameState state(deck);
   GameOutcome outcome = state.PlayGame(players, rng);
   moon = outcome.shotTheMoon();
-  bool stopped = outcome.stoppedTheMoon();
 
   const char* name[2] = {"c", "o"};
 
@@ -254,8 +253,6 @@ void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, boo
     }
     if (moon)
       printf("  Shot the moon!\n");
-    else if (stopped)
-      printf("  Moon stopped!\n");
     else
       printf("\n");
   }

@@ -16,15 +16,13 @@
 enum MoonCountKey {
   kCurrentShotTheMoon = 0,
   kOtherShotTheMoon = 1,
-  kCurrentStoppedTheMoon = 2,
-  kOtherStoppedTheMoon = 3,
-  kNumMoonCountKeys = 4
+  kNumMoonCountKeys = 2
 };
 
 class GameOutcome
 {
 public:
-  GameOutcome(int stopTheMoonPenalty=6);
+  GameOutcome();
 
   GameOutcome(const GameOutcome& other);
 
@@ -49,14 +47,10 @@ public:
     // The full score range is -19.5 to 24.5.
 
   const bool shotTheMoon() const { return mShotTheMoon; }
-  const bool stoppedTheMoon() const { return mStoppedTheMoon; }
 
 private:
-  const int mStopTheMoonPenalty;
   unsigned mScores[4];
   unsigned mPointTricks[4];
   bool mShotTheMoon;
-  bool mStoppedTheMoon;
   int mShooter;
-  int mStopper;
 };

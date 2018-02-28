@@ -2,10 +2,10 @@
 
 #include "lib/Strategy.h"
 #include "lib/Annotator.h"
+#include "lib/GameOutcome.h"
 #include "dlib/threads.h"
 
 class KnowableState;
-class GameOutcome;
 
 enum ScoreType {
   // We support three different scoring variants.
@@ -76,7 +76,7 @@ private:
     void FinishedOneAlternate() { ++mTotalAlternates; }
 
     Card ComputeProbabilities(const CardHand& choices
-                            , float moonProb[13][5]
+                            , float moonProb[13][kNumMoonCountKeys+1]
                             , float winsTrickProb[13]
                             , float expectedScore[13]
                             , ScoreType scoreType) const;
@@ -92,13 +92,11 @@ private:
     // We use it to estimate the probability that if we play this card it will take the trick.
     unsigned trickWins[13];
 
-    int moonCounts[13][4];
+    int moonCounts[13][kNumMoonCountKeys];
        // Counts across all of the rollouts of when one of four significant events related to shooting the moon occured
        // There is a fifth event, which is the common case where points are split without anyone coming close to shooting moon
        // mc[i][0] is I shot the moon,
        // mc[i][1] is other shot the moon
-       // mc[i][2] is I stopped other from shooting the moon
-       // mc[i][3] is other stopped me from shooting the moon
   };
 
   void PlayOneAlternate(const KnowableState& knowableState

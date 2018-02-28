@@ -145,7 +145,7 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState, const RandomGene
     totalStats = RunParallelTasks(knowableState, rng, analyzer, choices);
   }
 
-  float moonProb[13][5];
+  float moonProb[13][3];
   float winsTrickProb[13];
   float expectedScore[13];
 
@@ -184,27 +184,24 @@ void MonteCarlo::Stats::UntrackTrickWinner(GameState& next) {
   next.TrackTrickWinner(0);
 }
 
-const float kStopTheMoonPenalty = 6.0;
 const float kScoreTypeOffsets[kNumScoreTypes][kNumMoonCountKeys] = {
-  { 0.0, 0.0, 0.0, 0.0 },                                     // kBoringScore
-  { -39.0, 13.0, 0, 0 },                                      // kStandardScore
-  { -39.0, 13.0, -kStopTheMoonPenalty, kStopTheMoonPenalty }, // kModifiedScore
+  { 0.0, 0.0 },                                     // kBoringScore
+  { -39.0, 13.0 },                                      // kStandardScore
+  { -39.0, 13.0 }, // kModifiedScore
 };
 
 Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
-                        , float moonProb[13][5]
+                        , float moonProb[13][kNumMoonCountKeys+1]
                         , float winsTrickProb[13]
                         , float expectedScore[13]
                         , ScoreType scoreType) const
 {
   const float kScale = 1.0 / mTotalAlternates;
   for (unsigned i=0; i<choices.Size(); ++i) {
-    int notMoonCount = mTotalAlternates - (moonCounts[i][0] + moonCounts[i][1] + moonCounts[i][2] + moonCounts[i][3]);
+    int notMoonCount = mTotalAlternates - (moonCounts[i][0] + moonCounts[i][1]);
     moonProb[i][kCurrentShotTheMoon] = moonCounts[i][kCurrentShotTheMoon] * kScale;
     moonProb[i][kOtherShotTheMoon] = moonCounts[i][kOtherShotTheMoon] * kScale;
-    moonProb[i][kCurrentStoppedTheMoon] = moonCounts[i][kCurrentStoppedTheMoon] * kScale;
-    moonProb[i][kOtherStoppedTheMoon] = moonCounts[i][kOtherStoppedTheMoon] * kScale;
-    moonProb[i][4] = notMoonCount * kScale;
+    moonProb[i][2] = notMoonCount * kScale;
 
     winsTrickProb[i] = trickWins[i] * kScale;
   }
