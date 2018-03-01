@@ -102,7 +102,6 @@ def model_fn(features, labels, mode, params={}):
 
     hidden_width = params['hidden_width']
     hidden_depth = params['hidden_depth']
-    redundancy = params['redundancy']
     num_batches = params['num_batches']
     activation = activation_fn(params['activation'])
 
