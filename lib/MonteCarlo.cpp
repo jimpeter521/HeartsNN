@@ -233,7 +233,7 @@ Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
       assert(score <=  18.5 + kEpsilon);
     }
 
-    expectedScore[i] = score - offset;
+    expectedScore[i] = (score - offset) / 26.0;
     if (bestScore > score) {
       bestScore = score;
       bestChoice = i;
