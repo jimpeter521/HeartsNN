@@ -113,7 +113,8 @@ def model_fn(features, labels, mode, params={}):
 
     conv_layers = convolution_layers(mainData, activation, isTraining)
 
-    last_common_layer = hidden_layers(conv_layers, hidden_depth, hidden_width, activation)
+    layer = hidden_layers(conv_layers, hidden_depth, hidden_width, activation)
+    last_common_layer = tf.layers.dense(layer, hidden_width)
 
     outputs_dict = {}
 
