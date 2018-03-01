@@ -41,8 +41,8 @@ def load_memmap(filePath, rowShape):
 
 def load_memmaps(dirPath):
     mainData = load_memmap(dirPath + '/main_data.np.mmap', MAIN_INPUT_SHAPE)
-    scoresData = load_memmap(dirPath + '/scores_data.np.mmap', SCORES_SHAPE)
-    winTrickProbs = load_memmap(dirPath + '/win_trick_data.np.mmap', WIN_TRICK_PROBS_SHAPE)
+    scoresData = load_memmap(dirPath + '/score_data.np.mmap', SCORES_SHAPE)
+    winTrickProbs = load_memmap(dirPath + '/trick_data.np.mmap', WIN_TRICK_PROBS_SHAPE)
     moonProbData = load_memmap(dirPath + '/moon_data.np.mmap', MOONPROBS_SHAPE)
 
     nsamples = len(mainData)

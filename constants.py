@@ -7,33 +7,24 @@ NUM_RANKS = 13
 NUM_PLAYERS = 4
 PLAYS_PER_TRICK = 4
 
-MOON_FLAGS_LEN = 4
-POINTS_SO_FAR_LEN = PLAYS_PER_TRICK + 1 + MOON_FLAGS_LEN
-
-# 7 features columns. The probabilities for each of the 4 players,
-# plus 3 more: legal plays, high card in trick, and point value.
+# 10 features columns. The probabilities for each of the 4 players,
+# plus 6 more: legal plays, high card in trick, and point value.
 # Note that legal plays is a vector we must extract in the model.
-# We have been placing it first, but we now make it the 5th column (column index 4),
-# as that makes it easier to optionally set whether we include the two non-point suits (clubs & diamonds)
-# redundantly when we combine the CNN output with the non-CNN features.
-INPUT_FEATURES = NUM_PLAYERS + 3
+# We place it as the first column, for convenience.
+INPUT_FEATURES = 10
 
-EXTRA_FEATURES = 33
-
-TOTAL_SCALAR_FEATURES = CARDS_IN_DECK*INPUT_FEATURES + POINTS_SO_FAR_LEN + EXTRA_FEATURES
+TOTAL_SCALAR_FEATURES = CARDS_IN_DECK*INPUT_FEATURES
 
 DECK_SHAPE = (CARDS_IN_DECK,)
 
-MAIN_INPUT_SHAPE = (TOTAL_SCALAR_FEATURES,)
+MAIN_INPUT_SHAPE = (CARDS_IN_DECK,INPUT_FEATURES)
 
 SUITS_RANKS_SHAPE = (NUM_SUITS, NUM_RANKS)
 
-POINTS_SO_FAR_SHAPE = (POINTS_SO_FAR_LEN,)
-
 SCORES_SHAPE = DECK_SHAPE
 WIN_TRICK_PROBS_SHAPE = DECK_SHAPE
-MOON_CLASSES = 5
-MOONPROBS_SHAPE = (MOON_CLASSES*CARDS_IN_DECK,)
+MOON_CLASSES = 3
+MOONPROBS_SHAPE = (CARDS_IN_DECK, MOON_CLASSES)
 
 number_re = re.compile(r'^(\d+)([KM]?)$')
 
