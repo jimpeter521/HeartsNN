@@ -37,7 +37,7 @@ def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraini
     assert (input_height-kernel_height) % stride == 0
     output_height = ((input_height-kernel_height) // stride) + 1
 
-    SCALE = 0.9
+    SCALE = 0.75
     # With SCALE=1.0, we compute a number of output filters/features that will approximate the number of input features
     # We typically will want to gradually reduce the number of features in each layer, so use a SCALE a little less than 1.0
     filters = int(round(SCALE * float(input_height)*float(input_features)/float(output_height)))
