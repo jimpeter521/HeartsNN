@@ -49,7 +49,7 @@ WriteDataAnnotator::WriteDataAnnotator(bool validateMode)
 
 void WriteDataAnnotator::On_DnnMonteCarlo_choosePlay(const KnowableState& state
                                   , PossibilityAnalyzer* analyzer
-                                  , const float expectedScore[13], const float moonProb[13][5])
+                                  , const float expectedScore[13], const float moonProb[13][3])
 {
 }
 
@@ -73,7 +73,7 @@ std::string FixedPointToString(int x)
 }
 
 void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnalyzer* analyzer, const float expectedScore[13]
-                          , const float moonProb[13][5], const float winsTrickProb[13])
+                          , const float moonProb[13][3], const float winsTrickProb[13])
 {
   FILE* out = mFiles[state.PlayNumber()];
   fprintf(out, "%s\n", asHexString(state.dealIndex()).c_str());
@@ -116,9 +116,10 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
   for (unsigned i=0; i<choices.Size(); ++i) {
     Card card = it.next();
 
-    int f[5];
+    const int kNumMoonProbClasses = 3;
+    int f[kNumMoonProbClasses];
     int sum = 0;
-    for (int j=0; j<5; j++) {
+    for (int j=0; j<kNumMoonProbClasses; j++) {
       int scaled = int(moonProb[i][j] * kScale + 0.5);
       sum += scaled;
       f[j] = scaled;
@@ -128,7 +129,7 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
       const int kHalf = kScale/2;
       int delta = kScale - sum; // should be 1 nearly all the time
       sum += delta;
-      for (int j=0; j<5; j++) {
+      for (int j=0; j<kNumMoonProbClasses; j++) {
         if (f[j]>0 && f[j]<kHalf) {
           f[j] += delta;
           break;
@@ -140,7 +141,7 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
       // We will reduce the largest value
       int imax = 0;
       int max = f[imax];
-      for (int j=1; j<5; j++) {
+      for (int j=1; j<kNumMoonProbClasses; j++) {
         if (max < f[j]) {
           max = f[j];
           imax = j;
@@ -155,19 +156,12 @@ void WriteDataAnnotator::OnWriteData(const KnowableState& state, PossibilityAnal
     // We want to make it easy on our models to learn to predict appoximate number of points that can be taken.
     // We'll use the moonProb prediction to come the corrected score.
     const float kEpsilon = 0.001;  // a little fudge factor for inexact floating point.
-    assert(expectedScore[i] >= -6.5 - kEpsilon);
-    assert(expectedScore[i] <= 19.5 + kEpsilon);
+    assert(expectedScore[i] >=  0.0 - kEpsilon);
+    assert(expectedScore[i] <= 26.0 + kEpsilon);
 
-    fprintf(out, "%3s  %5.4f %5.4f | %s %s %s %s %s\n", NameOf(card), expectedScore[i], winsTrickProb[i]
-               , FixedPointToString(f[0]).c_str(), FixedPointToString(f[1]).c_str(), FixedPointToString(f[2]).c_str()
-               , FixedPointToString(f[3]).c_str(), FixedPointToString(f[4]).c_str()
-             );
+    fprintf(out, "%3s  %5.4f %5.4f | %s %s %s\n", NameOf(card), expectedScore[i], winsTrickProb[i]
+               , FixedPointToString(f[0]).c_str(), FixedPointToString(f[1]).c_str(), FixedPointToString(f[2]).c_str());
   }
-
-  fprintf(out, "--\n");
-  KnowableState::ExtraFeatures extra;
-  state.ComputeExtraFeatures(extra);
-  extra.Print(out);
 
   fprintf(out, "----\n");
 }

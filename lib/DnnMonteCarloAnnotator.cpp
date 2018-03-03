@@ -15,7 +15,7 @@ DnnMonteCarloAnnotator::DnnMonteCarloAnnotator(const tensorflow::SavedModelBundl
 }
 
 void DnnMonteCarloAnnotator::On_DnnMonteCarlo_choosePlay(const KnowableState& state, PossibilityAnalyzer* analyzer
-                               , const float empiricalExpectedScore[13], const float empiricalMoonProb[13][5])
+                               , const float empiricalExpectedScore[13], const float empiricalMoonProb[13][3])
 {
   const CardHand choices = state.LegalPlays();
   printf("Play %d, Player Leading %d, Current Player %d, Choices %d TrickSuit %s\n"
@@ -57,7 +57,7 @@ void DnnMonteCarloAnnotator::On_DnnMonteCarlo_choosePlay(const KnowableState& st
   for (unsigned i=0; i<choices.Size(); ++i) {
     Card card = it.next();
     printf("%3s em=%4.2f pr=%4.2f | ", NameOf(card), empiricalExpectedScore[i], predictedExpectedScore[i]);
-    for (int j=0; j<5; j++)
+    for (int j=0; j<3; j++)
       printf(" em=%2.1f", empiricalMoonProb[i][j]);
     printf("\n");
   }
@@ -70,6 +70,6 @@ void DnnMonteCarloAnnotator::OnGameStateBeforePlay(const GameState& state)
 }
 
 void DnnMonteCarloAnnotator::OnWriteData(const KnowableState& state, PossibilityAnalyzer* analyzer, const float empiricalExpectedScore[13]
-                          , const float empiricalMoonProb[13][5], const float winsTrickProb[13])
+                          , const float empiricalMoonProb[13][3], const float winsTrickProb[13])
 {
 }

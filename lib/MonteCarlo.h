@@ -2,10 +2,10 @@
 
 #include "lib/Strategy.h"
 #include "lib/Annotator.h"
+#include "lib/GameOutcome.h"
 #include "dlib/threads.h"
 
 class KnowableState;
-class GameOutcome;
 
 enum ScoreType {
   // We support three different scoring variants.
@@ -19,15 +19,8 @@ enum ScoreType {
     // The standard score, taking into account shooting the moon.
     // This score is in the range of -19.5 to 18.5.
 
-  kModifiedScore = 2,
-    // A score that is modified to favor players who play a smart defensive game that prevents shooting the moon.
-    // This score is also zero mean as the above, but has a higher range, up to 18.5+kStopTheMoonPenalty,
-    // and goes below -6.5 for the player who stopped the moon, to as low as as -5.5-kStopTheMoonPenalty.
-    // kStopTheMoonPenalty is currently hard coded to 6.0.
-    // The full score range is -19.5 to 24.5.
-
-  kNumScoreTypes = 3,
-    // This is not a score type, but instead is the constant 3, the number of different score types.
+  kNumScoreTypes = 2,
+    // This is not a score type, but instead is the number of different score types.
 };
 
 class MonteCarlo : public Strategy
@@ -76,10 +69,11 @@ private:
     void FinishedOneAlternate() { ++mTotalAlternates; }
 
     Card ComputeProbabilities(const CardHand& choices
-                            , float moonProb[13][5]
+                            , float moonProb[13][kNumMoonCountKeys+1]
                             , float winsTrickProb[13]
                             , float expectedScore[13]
-                            , ScoreType scoreType) const;
+                            , ScoreType scoreType
+                            , float offset=0.0) const;
   private:
     unsigned mNumLegalPlays;
 
@@ -92,13 +86,11 @@ private:
     // We use it to estimate the probability that if we play this card it will take the trick.
     unsigned trickWins[13];
 
-    int moonCounts[13][4];
+    int moonCounts[13][kNumMoonCountKeys];
        // Counts across all of the rollouts of when one of four significant events related to shooting the moon occured
        // There is a fifth event, which is the common case where points are split without anyone coming close to shooting moon
        // mc[i][0] is I shot the moon,
        // mc[i][1] is other shot the moon
-       // mc[i][2] is I stopped other from shooting the moon
-       // mc[i][3] is other stopped me from shooting the moon
   };
 
   void PlayOneAlternate(const KnowableState& knowableState

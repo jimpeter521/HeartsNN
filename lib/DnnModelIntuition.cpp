@@ -32,7 +32,13 @@ DnnModelIntuition::DnnModelIntuition(const tensorflow::SavedModelBundle& model, 
 
 Card DnnModelIntuition::choosePlay(const KnowableState& state, const RandomGenerator& rng) const
 {
-  tensorflow::Tensor mainData = state.Transform();
+  FloatMatrix matrix = state.AsFloatMatrix();
+  Tensor mainData(DT_FLOAT, TensorShape({1, kCardsPerDeck, KnowableState::kNumFeaturesPerCard}));
+
+  const float* srcData = matrix.data();
+  float* dstData = mainData.flat<float>().data();
+
+  memcpy(dstData, srcData, kCardsPerDeck*KnowableState::kNumFeaturesPerCard*sizeof(float));
 
   std::vector<tensorflow::Tensor> outputs;
   mPredictor->Predict(mainData, outputs);

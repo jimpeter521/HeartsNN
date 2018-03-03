@@ -3,6 +3,7 @@
 #include "lib/DnnModelIntuition.h"
 #include "lib/GameState.h"
 #include "lib/WriteDataAnnotator.h"
+#include "lib/WriteTrainingDataSets.h"
 
 #include "lib/random.h"
 #include "lib/math.h"
@@ -10,6 +11,7 @@
 
 #include <tensorflow/cc/saved_model/loader.h>
 #include <tensorflow/cc/saved_model/tag_constants.h>
+#include <sys/stat.h>
 
 const int kConcurrency = 2 + (std::thread::hardware_concurrency()/2);
 const int kIterationsPerTask = 100;
@@ -57,7 +59,8 @@ float run_iterations_task(int kIterationsPerTask, StrategyPtr opponent)
   const uint32_t kNumAlternates = gModelPath ? 100 : 5000;
 
   // The `player` uses monte carlo and will generate data
-  AnnotatorPtr annotator(new WriteDataAnnotator());
+  // AnnotatorPtr annotator(new WriteDataAnnotator());
+  AnnotatorPtr annotator(new WriteTrainingDataSets());
   StrategyPtr player(new MonteCarlo(opponent, kNumAlternates, false, annotator));
 
   StrategyPtr players[4];
@@ -74,7 +77,7 @@ float run_iterations_task(int kIterationsPerTask, StrategyPtr opponent)
 
     GameState state;
     GameOutcome outcome = state.PlayGame(players, rng);
-    totalChampScore += outcome.modifiedScore(p);
+    totalChampScore += outcome.standardScore(p);
   }
 
   return totalChampScore;
@@ -124,6 +127,14 @@ int main(int argc, char** argv)
 
   // Each of the three opponents will use intuition only and not write data.
   StrategyPtr opponent = getIntuition();
+
+  const char* dataDirPath = "data";
+  int err = mkdir(dataDirPath, 0777);
+  if (err != 0 && errno != EEXIST) {
+    const char* errmsg = strerror(errno);
+    fprintf(stderr, "mkdir %s failed: %s\n", dataDirPath, errmsg);
+    assert(err != 0);
+  }
 
   const double startTime = now();
   int doneSoFar = 0;

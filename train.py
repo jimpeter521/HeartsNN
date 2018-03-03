@@ -41,8 +41,8 @@ def load_memmap(filePath, rowShape):
 
 def load_memmaps(dirPath):
     mainData = load_memmap(dirPath + '/main_data.np.mmap', MAIN_INPUT_SHAPE)
-    scoresData = load_memmap(dirPath + '/scores_data.np.mmap', SCORES_SHAPE)
-    winTrickProbs = load_memmap(dirPath + '/win_trick_data.np.mmap', WIN_TRICK_PROBS_SHAPE)
+    scoresData = load_memmap(dirPath + '/score_data.np.mmap', SCORES_SHAPE)
+    winTrickProbs = load_memmap(dirPath + '/trick_data.np.mmap', WIN_TRICK_PROBS_SHAPE)
     moonProbData = load_memmap(dirPath + '/moon_data.np.mmap', MOONPROBS_SHAPE)
 
     nsamples = len(mainData)
@@ -123,7 +123,7 @@ def train_with_params(train_memmaps, eval_memmaps, params, serving_input_receive
     num_batches = params['num_batches']
     threshold = params['threshold']
 
-    model_dir_path = '{}/d{}w{}r{}_{}'.format(ROOT_MODEL_DIR, hidden_depth, hidden_width, redundancy, activation)
+    model_dir_path = '{}/d{}w{}_{}'.format(ROOT_MODEL_DIR, hidden_depth, hidden_width, activation)
     os.makedirs(model_dir_path, exist_ok=True)
 
     params['model_dir_path'] = model_dir_path
@@ -195,20 +195,18 @@ if __name__ == '__main__':
     print('num_batches, threshold:', num_batches, threshold)
 
     evals = {}
-    for hidden_width in range(180,210,1):
-        for hidden_depth in [1]:
+    for hidden_depth in [1, 2]:
+        for hidden_width in range(150, 226, 25):
             for activation in ['relu']:
-                for redundancy in [0]:
-                    params = {
-                        'hidden_depth': hidden_depth,
-                        'hidden_width': hidden_width,
-                        'activation': activation,
-                        'redundancy': redundancy,
-                        'num_batches': num_batches,
-                        'threshold': threshold,
-                    }
-                    results = train_with_params(train_memmaps, eval_memmaps, params, serving_input_receiver_fn=serving_input_receiver_fn)
-                    evals['d{}w{}r{}_{}'.format(hidden_depth, hidden_width, redundancy, activation)] = results
+                params = {
+                    'hidden_depth': hidden_depth,
+                    'hidden_width': hidden_width,
+                    'activation': activation,
+                    'num_batches': num_batches,
+                    'threshold': threshold,
+                }
+                results = train_with_params(train_memmaps, eval_memmaps, params, serving_input_receiver_fn=serving_input_receiver_fn)
+                evals['d{}w{}_{}'.format(hidden_depth, hidden_width, activation)] = results
 
     for k, v in evals.items():
         print(v, k, file=sys.stderr)

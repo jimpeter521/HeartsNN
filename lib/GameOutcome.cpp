@@ -7,10 +7,8 @@
 
 const unsigned kExpectedTotal = 26u;
 
-GameOutcome::GameOutcome(int stopTheMoonPenalty)
-: mStopTheMoonPenalty(stopTheMoonPenalty)
-, mShooter(-1)
-, mStopper(-1)
+GameOutcome::GameOutcome()
+: mShooter(-1)
 {
 
 }
@@ -73,18 +71,8 @@ void GameOutcome::Set(unsigned pointTricks[4], unsigned score[4])
   // We can tell that one player shot the moon when the other three players took no points
   mShotTheMoon = withZeroTricks==3;
 
-  // Detecting that one player stopped another is harder, as there is multiple conditions we have to check.
-  mStoppedTheMoon = withZeroTricks==2
-                && withOneTrick==1 && withMultipleTricks==1 && pointsInOneTricks<=4;
-
-  // It's not possible that in the same game that both someone shot the moon and someone stopped a player from shooting.
-  assert(!mStoppedTheMoon || !mShotTheMoon);
-
   if (mShotTheMoon) {
     mShooter = firstWith(mScores, kExpectedTotal);
-  } else if (mStoppedTheMoon) {
-    mStopper = firstWith(mPointTricks, 1);
-    mShooter = firstWithMany(mPointTricks);
   }
 }
 
@@ -99,41 +87,29 @@ void GameOutcome::updateMoonStats(unsigned currentPlayer, int iChoice, int moonC
       assert(mShooter!=-1 && mShooter!=currentPlayer);
       ++moonCounts[iChoice][kOtherShotTheMoon];
     }
-  } else if (mStoppedTheMoon) {
-    unsigned myPointTricks = mPointTricks[currentPlayer];
-    if (myPointTricks == 1) {
-      ++moonCounts[iChoice][kCurrentStoppedTheMoon];
-    } else if (myPointTricks > 1) {
-      ++moonCounts[iChoice][kOtherStoppedTheMoon];
-    }
   }
 }
 
 float GameOutcome::boringScore(unsigned currentPlayer) const {
   assert(mScores[currentPlayer] <= 26u);
-  float score = mScores[currentPlayer] - 6.5;
-  assert(score >= -6.5);
-  assert(score <= 19.5);
+  float score = mScores[currentPlayer];
+  assert(score >= 0.0);
+  assert(score <= 26.0);
   return score;
 }
 
-float GameOutcome::modifiedScore(unsigned currentPlayer) const
+float GameOutcome::standardScore(unsigned currentPlayer) const
 {
-  float score = boringScore(currentPlayer);
-  if (mShotTheMoon) {
-    unsigned myScore = mScores[currentPlayer];
-    if (myScore == kExpectedTotal) {
-      score -= 39.0;
-    } else {
-      score += 13.0;
-    }
+  assert(mScores[currentPlayer] <= 26u);
+  if (!mShotTheMoon)
+  {
+    return boringScore(currentPlayer) - 6.5;
   }
-  else if (mStoppedTheMoon && mPointTricks[currentPlayer]!=0) {
-    if (mPointTricks[currentPlayer] == 1) {
-      score -= mStopTheMoonPenalty;
-    } else {
-      score += mStopTheMoonPenalty;
-    }
+  else
+  {
+    if (mScores[currentPlayer] == 26u)
+      return -19.5;
+    else
+      return 6.5;
   }
-  return score;
 }

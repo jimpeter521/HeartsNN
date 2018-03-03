@@ -16,15 +16,13 @@
 enum MoonCountKey {
   kCurrentShotTheMoon = 0,
   kOtherShotTheMoon = 1,
-  kCurrentStoppedTheMoon = 2,
-  kOtherStoppedTheMoon = 3,
-  kNumMoonCountKeys = 4
+  kNumMoonCountKeys = 2
 };
 
 class GameOutcome
 {
 public:
-  GameOutcome(int stopTheMoonPenalty=6);
+  GameOutcome();
 
   GameOutcome(const GameOutcome& other);
 
@@ -36,27 +34,17 @@ public:
 
   float boringScore(unsigned currentPlayer) const;
     // Return the score for the boring game of hearts, i.e. one without shooting the moon.
-    // This score is in the range of -6.5 to +19.5.
+    // This score is in the range of 0.0 to 26.0.
 
   float standardScore(unsigned currentPlayer) const;
-    // Return the standard score, taking into account shooting the moon.
+    // Return the standard score, taking into account shooting the moon, but with zero mean.
     // This score is in the range of -19.5 to 18.5.
 
-  float modifiedScore(unsigned currentPlayer) const;
-    // Return a score that is modified to favor players who play a smart defensive game that prevents shooting the moon.
-    // This score is also zero mean as the above, but has a higher range, up to 18.5+stopTheMoonPenalty,
-    // and goes below -6.5 for the player who stopped the moon, to as low as as -5.5-stopTheMoonPenalty.
-    // The full score range is -19.5 to 24.5.
-
   const bool shotTheMoon() const { return mShotTheMoon; }
-  const bool stoppedTheMoon() const { return mStoppedTheMoon; }
 
 private:
-  const int mStopTheMoonPenalty;
   unsigned mScores[4];
   unsigned mPointTricks[4];
   bool mShotTheMoon;
-  bool mStoppedTheMoon;
   int mShooter;
-  int mStopper;
 };

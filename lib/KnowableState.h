@@ -14,8 +14,33 @@ namespace tensorflow {
   struct SavedModelBundle;
 };
 
+// Doc for Eigen::Tensor is https://bitbucket.org/eigen/eigen/src/de7544f256bdeb135f7d016e2ddf344a9e0406eb/unsupported/Eigen/CXX11/src/Tensor/README.md
+typedef Eigen::Tensor<float, 1, Eigen::RowMajor>  FloatVector;
+typedef Eigen::Tensor<float, 2, Eigen::RowMajor>  FloatMatrix;
+
+// One prediction input is a FloatMatrix with 52 rows and 10 columns
+// FloatMatrix predictionInput(52, 10)
+
+enum FeatureColumns
+{
+  eLegalPlay,
+  eCardProbPlayer0,
+  eCardProbPlayer1,
+  eCardProbPlayer2,
+  eCardProbPlayer3,
+  eCardPoints,
+  eCardOnTable,
+  eCardIsHighCardInTrick,
+  ePlayerNotRuledOutForMoon,
+  eOtherNotRuledOutForMoon,
+};
+
 class KnowableState : public HeartsState
 {
+public:
+  static const int kNumFeaturesPerCard = 10;
+  static const int kNumFeatures = kNumFeaturesPerCard * kCardsPerDeck;
+
 public:
   KnowableState(const GameState& other);
 
@@ -29,7 +54,7 @@ public:
 
   void PrepareHands(CardHands& hands) const;
 
-  void AsProbabilities(float prob[52][4]) const;
+  void AsProbabilities(float prob[kCardsPerDeck][kNumPlayers]) const;
     // Fill the prob array with approximate probabilities of player holding the card.
     // For the current player, we assign 1.0 probability to each card in hand.
     // For the other 3 players, the probabilities are just assigned uniformly across the players who are
@@ -38,6 +63,9 @@ public:
   tensorflow::Tensor Transform() const;
     // Transform this state into the the `mainData` tensor input for predict.
 
+  FloatMatrix AsFloatMatrix() const;
+    // Returns an Eigen3 maxtrix with kCardsPerDeck rows and kNumFeaturesPerCard columns
+
   Card Predict(const tensorflow::SavedModelBundle& model, const tensorflow::Tensor& mainData, float playExpectedValue[13]) const;
     // Run tensorflow prediction given the model and tensor input.
 
@@ -45,45 +73,15 @@ public:
 
   Card ParsePrediction(const std::vector<tensorflow::Tensor>& outputs, float playExpectedValue[13]) const;
 
-  struct ExtraFeatures {
-    float mPlayProgress;
-    float mTricksProgess;
-    float mInTrickProgress;
-    float mGuaranteedSluff[4];
-    float mGuaranteedTake[4];
-    float mStength[4];
-    float mForcedTake[4];
-    float mForcedAllow[4];
-    float mVulnerability[4];
-
-    float mTotalGuaranteedSluff;
-    float mTotalGuaranteedTake;
-    float mTotalStrength;
-    float mTotalForcedTake;
-    float mTotalForcedAllow;
-    float mTotalVulnerability;
-
-    void Print(FILE* out);
-    void AppendTo(Eigen::TensorMap<Eigen::Tensor<float, 2, 1, long>, 16, Eigen::MakePointer> m, int &index);
-  };
-
-  void ComputeExtraFeatures(ExtraFeatures& extra) const;
-
-public:
-  static const int kNumPlayers = 4;
-  static const int kNumFeaturesPerCard = kNumPlayers + 3;
-  static const int kMoonFlagsLen = 4;
-  static const int kPlaysPerTrick = 4;
-  static const int kPointsExtraFeatures = kPlaysPerTrick + 1 + kMoonFlagsLen;
-  static const int kNumExtraFeatures = sizeof(ExtraFeatures) / sizeof(float);
-  static const int kNumFeatures = kNumFeaturesPerCard * kCardsPerDeck + kPointsExtraFeatures + kNumExtraFeatures;
-
 private:
   KnowableState();  // unimplemented
 
   void VerifyKnowableState() const;
 
-private:
+  void FillRuledOutForMoonColumnsWhenNoPointsTaken(const CardHand& choices, FloatMatrix& result) const;
+  void FillRuledOutForMoonColumnsWhenOtherPlayerRuledOut(const CardHand& choices, FloatMatrix& result) const;
+  void FillRuledOutForMoonColumnsWhenCurrentPlayerRuledOut(const CardHand& choices, FloatMatrix& result) const;
 
+private:
   CardHand mHand;
 };

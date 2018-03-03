@@ -6,6 +6,7 @@
 #include "lib/MonteCarlo.h"
 #include "lib/PossibilityAnalyzer.h"
 #include "lib/timer.h"
+#include "lib/DebugStats.h"
 
 #include "dlib/logger.h"
 
@@ -145,16 +146,17 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState, const RandomGene
     totalStats = RunParallelTasks(knowableState, rng, analyzer, choices);
   }
 
-  float moonProb[13][5];
+  float moonProb[13][3];
   float winsTrickProb[13];
   float expectedScore[13];
 
   // TODO: Better name, this does more than compute probabilities.
-  Card bestPlay = totalStats.ComputeProbabilities(choices, moonProb, winsTrickProb, expectedScore, kModifiedScore);
+  Card bestPlay = totalStats.ComputeProbabilities(choices, moonProb, winsTrickProb, expectedScore, kStandardScore);
 
   const AnnotatorPtr annotator = getAnnotator();
   if (annotator) {
-    totalStats.ComputeProbabilities(choices, moonProb, winsTrickProb, expectedScore, kBoringScore);
+    float offset = float(knowableState.GetScoreFor(knowableState.CurrentPlayer()));
+    totalStats.ComputeProbabilities(choices, moonProb, winsTrickProb, expectedScore, kBoringScore, offset);
     annotator->OnWriteData(knowableState, analyzer, expectedScore, moonProb, winsTrickProb);
   }
 
@@ -184,33 +186,38 @@ void MonteCarlo::Stats::UntrackTrickWinner(GameState& next) {
   next.TrackTrickWinner(0);
 }
 
-const float kStopTheMoonPenalty = 6.0;
 const float kScoreTypeOffsets[kNumScoreTypes][kNumMoonCountKeys] = {
-  { 0.0, 0.0, 0.0, 0.0 },                                     // kBoringScore
-  { -39.0, 13.0, 0, 0 },                                      // kStandardScore
-  { -39.0, 13.0, -kStopTheMoonPenalty, kStopTheMoonPenalty }, // kModifiedScore
+  { 0.0, 0.0 },     // kBoringScore
+  { -39.0, 13.0 },   // kStandardScore
 };
 
+DebugStats _rawScoreStats("MonteCarlo::raw");
+DebugStats _boringScoreStats("MonteCarlo::boring");
+DebugStats _standardScoreStats("MonteCarlo::standard");
+DebugStats _normScoreStats("MonteCarlo::normalized");
+DebugStats _offsetStats("MonteCarlo::offset");
+
 Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
-                        , float moonProb[13][5]
+                        , float moonProb[13][kNumMoonCountKeys+1]
                         , float winsTrickProb[13]
                         , float expectedScore[13]
-                        , ScoreType scoreType) const
+                        , ScoreType scoreType
+                        , float offset) const
 {
   const float kScale = 1.0 / mTotalAlternates;
   for (unsigned i=0; i<choices.Size(); ++i) {
-    int notMoonCount = mTotalAlternates - (moonCounts[i][0] + moonCounts[i][1] + moonCounts[i][2] + moonCounts[i][3]);
+    int notMoonCount = mTotalAlternates - (moonCounts[i][0] + moonCounts[i][1]);
     moonProb[i][kCurrentShotTheMoon] = moonCounts[i][kCurrentShotTheMoon] * kScale;
     moonProb[i][kOtherShotTheMoon] = moonCounts[i][kOtherShotTheMoon] * kScale;
-    moonProb[i][kCurrentStoppedTheMoon] = moonCounts[i][kCurrentStoppedTheMoon] * kScale;
-    moonProb[i][kOtherStoppedTheMoon] = moonCounts[i][kOtherStoppedTheMoon] * kScale;
-    moonProb[i][4] = notMoonCount * kScale;
+    moonProb[i][2] = notMoonCount * kScale;
 
     winsTrickProb[i] = trickWins[i] * kScale;
   }
 
+  _offsetStats.Accum(offset);
+
   assert(scoreType>=kBoringScore);
-  assert(scoreType<=kModifiedScore);
+  assert(scoreType<kNumScoreTypes);
   const float* kScoreOffset = kScoreTypeOffsets[scoreType];
 
   const float kEpsilon = 0.001;  // a little fudge factor for inexact floating point.
@@ -218,26 +225,31 @@ Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
   float bestScore = 1e10;
   for (unsigned i=0; i<choices.Size(); ++i) {
     float score = scores[i] * kScale;
-    assert(score >= -6.5 - kEpsilon);
-    assert(score <= 19.5 + kEpsilon);
+
+    _rawScoreStats.Accum(score);
+
+    if (scoreType == kStandardScore)
+      score -= 6.5;
 
     for (unsigned j=0; j<kNumMoonCountKeys; ++j) {
       score += kScoreOffset[j] * moonProb[i][j];
     }
 
     if (scoreType == kBoringScore) {
-      assert(score >= -6.5 - kEpsilon);
-      assert(score <= 19.5 + kEpsilon);
-    } else if (scoreType == kModifiedScore) {
-      assert(score >= -19.5 - kEpsilon);
-      assert(score <=  24.5 + kEpsilon);
+      _boringScoreStats.Accum(score);
+      assert(score >= 0.0   - kEpsilon);
+      assert(score <= 26.0  + kEpsilon);
+      float normScore = (score - offset) / 26.0;
+      _normScoreStats.Accum(normScore);
+      expectedScore[i] = normScore;
     } else {
       assert(scoreType == kStandardScore);
+      _standardScoreStats.Accum(score);
       assert(score >= -19.5 - kEpsilon);
       assert(score <=  18.5 + kEpsilon);
+      expectedScore[i] = score;
     }
 
-    expectedScore[i] = score;
     if (bestScore > score) {
       bestScore = score;
       bestChoice = i;

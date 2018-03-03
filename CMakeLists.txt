@@ -11,6 +11,7 @@ add_executable(disttest disttest.cpp)
 add_executable(hearts hearts.cpp)
 add_executable(tournament tournament.cpp)
 add_executable(validate validate.cpp)
+add_executable(numpywriter numpywriter.cpp)
 
 include_directories( ${PROJECT_SOURCE_DIR} dlib )
 
@@ -25,3 +26,4 @@ target_link_libraries(disttest ${ALL_LIBRARIES})
 target_link_libraries(hearts ${ALL_LIBRARIES})
 target_link_libraries(tournament ${ALL_LIBRARIES})
 target_link_libraries(validate ${ALL_LIBRARIES})
+target_link_libraries(numpywriter ${ALL_LIBRARIES})

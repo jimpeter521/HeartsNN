@@ -15,10 +15,7 @@ def extract_distribution(mainData):
     which is 4 suits by 13 ranks by 6 features. We will apply a conv2d to each of the four planes of 13x6 arrays.
     """
     with tf.variable_scope('extract_distribution'):
-        distribution = mainData[:, 0:INPUT_FEATURES*CARDS_IN_DECK]
-        distribution = tf.reshape(distribution, [-1, INPUT_FEATURES, CARDS_IN_DECK])
-        distribution = tf.transpose(distribution, perm=[0,2,1])
-        distribution = tf.reshape(distribution, [-1, NUM_SUITS, NUM_RANKS, INPUT_FEATURES], name='distribution')
+        distribution = tf.reshape(mainData, [-1, NUM_SUITS, NUM_RANKS, INPUT_FEATURES], name='distribution')
     return distribution
 
 def hidden_layers(input, depth, width, activation):
@@ -40,7 +37,7 @@ def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraini
     assert (input_height-kernel_height) % stride == 0
     output_height = ((input_height-kernel_height) // stride) + 1
 
-    SCALE = 0.9
+    SCALE = 0.75
     # With SCALE=1.0, we compute a number of output filters/features that will approximate the number of input features
     # We typically will want to gradually reduce the number of features in each layer, so use a SCALE a little less than 1.0
     filters = int(round(SCALE * float(input_height)*float(input_features)/float(output_height)))
@@ -105,35 +102,18 @@ def model_fn(features, labels, mode, params={}):
 
     hidden_width = params['hidden_width']
     hidden_depth = params['hidden_depth']
-    redundancy = params['redundancy']
     num_batches = params['num_batches']
     activation = activation_fn(params['activation'])
 
     mainData = features[MAIN_DATA]
-    conv_layers = convolution_layers(mainData, activation, isTraining)
 
     with tf.variable_scope('legal_plays'):
-        legalPlays = mainData[:, CARDS_IN_DECK*4:CARDS_IN_DECK*5]  # extract the 5th feature column
+        legalPlays = mainData[:, :, 0]  # extract the first feature column
 
-    # print('conv_layers shape:', conv_layers.shape)
-    # print('mainData shape:', mainData.shape)
+    conv_layers = convolution_layers(mainData, activation, isTraining)
 
-    extra_features = mainData[:, INPUT_FEATURES*CARDS_IN_DECK:]
-
-    with tf.variable_scope('combined'):
-        if redundancy == 0:
-            combined = tf.concat([conv_layers, extra_features ], axis=-1, name='combined')
-        else:
-            first_suit = 4-redundancy
-            redundant = extract_distribution(mainData)
-            assert redundant.shape.as_list() == [None, NUM_SUITS, NUM_RANKS, INPUT_FEATURES]
-            redundant = redundant[:, first_suit:, :, :]
-            assert redundant.shape.as_list() == [None, redundancy, NUM_RANKS, INPUT_FEATURES]
-            redundant = tf.layers.flatten(redundant, name='redundant')
-            combined = tf.concat([conv_layers, redundant, extra_features], axis=-1, name='combined')
-
-    combined = hidden_layers(combined, hidden_depth, hidden_width, activation)
-    last_common_layer = tf.layers.dense(combined, hidden_width)
+    layer = hidden_layers(conv_layers, hidden_depth, hidden_width, activation)
+    last_common_layer = tf.layers.dense(layer, hidden_width)
 
     outputs_dict = {}
 
@@ -188,6 +168,7 @@ def model_fn(features, labels, mode, params={}):
     if SCORE:
       with tf.variable_scope('expected_score_loss'):
           y_expected_score = labels[EXPECTED_SCORE]
+          y_expected_score = tf.divide(y_expected_score, 26.0)  # TODO: Remove next time we regenerate data
           expected_score_diff = tf.subtract(y_expected_score, expectedScoreLogits)
           expected_score_diff2 = tf.square(expected_score_diff)
           expected_score_squared_sum = tf.reduce_sum(expected_score_diff2)

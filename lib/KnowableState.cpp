@@ -2,6 +2,8 @@
 #include "lib/GameState.h"
 #include "lib/PossibilityAnalyzer.h"
 
+#include "lib/DebugStats.h"
+
 #include <tensorflow/core/public/session.h>
 #include <tensorflow/core/protobuf/meta_graph.pb.h>
 #include <tensorflow/cc/saved_model/loader.h>
@@ -154,89 +156,280 @@ static int CountCardsHigherThan(const CardArray& cards, Card sentinel) {
   return cards.CountCardsWithMask(~mask);
 }
 
-void KnowableState::ComputeExtraFeatures(ExtraFeatures& extra) const
-{
-  const int kPlayNumber = PlayNumber();
-  const int kTrickNumber = kPlayNumber / 4;
-  const int kPlayInTrick = PlayInTrick();
-
-  // The following three features may be pointless, but it may be useful to give the NN a more direct sense
-  // of game and trick "time" than it can infer from other information.
-  // All three are in the range [0.0, 1.0]
-
-  // The last possible play where a player may have a choice is play #47.
-  extra.mPlayProgress = kPlayNumber / 47.0;
-
-  // The last trick is forced (#12, counting from zero), so we don't count it.
-  extra.mTricksProgess = kTrickNumber / 11.0;
-
-  // The last play in a trick is #3 (counting from zero)
-  extra.mInTrickProgress = kPlayInTrick / 3.0;
-
-  CardDeck remaining = UnplayedCardsNotInHand(mHand);
-
-  // 24 features in this loop
-  for (Suit suit=0; suit<kSuitsPerDeck; ++suit) {
-    const CardArray unplayedInSuit = remaining.CardsWithSuit(suit);
-    const CardArray myHandInSuit = mHand.CardsWithSuit(suit);
-
-    int guaranteedSluff = 0;
-    int guaranteedTake = 0;
-    if (unplayedInSuit.Size() == 0) {
-      // If the other players are all void in the suit, then all of my cards are guaranteed takes & sluffs
-      guaranteedSluff = guaranteedTake = myHandInSuit.Size();
-    } else {
-      Card lowestUnplayed = unplayedInSuit.FirstCard();
-      Card highestUnplayed = unplayedInSuit.LastCard();
-
-      // For each suit, number of cards in hand that are lower than any unplayed cards of the suit (guaranteed sluffs)
-      guaranteedSluff = CountCardsLowerThan(myHandInSuit, lowestUnplayed);
-
-      // For each suit, number of cards in hand that are higher than any unplayed cards of the suit (guaranteed takes)
-      guaranteedTake = CountCardsHigherThan(myHandInSuit, highestUnplayed);
-    }
-
-    // Normalize to size of hand, so that values are scaled similarly throughout the game
-    extra.mGuaranteedSluff[suit] = float(guaranteedSluff) / mHand.Size();
-    extra.mGuaranteedTake[suit] = float(guaranteedTake) / mHand.Size();
-    // For each suit, the min of these two numbers. When greater than zero, the suit is strong and flexible
-    extra.mStength[suit] = std::min(extra.mGuaranteedSluff[suit], extra.mGuaranteedTake[suit]);
-
-    int forcedTake = 0;
-    int forcedAllows = 0;
-    if (myHandInSuit.Size() > 0) {
-      const Card lowestUnplayed = myHandInSuit.FirstCard();
-      const Card highestUnplayed = myHandInSuit.LastCard();
-
-      // For each suit, number of unplayed cards lower than my lowest card of the suit (a crude measure of forced takes)
-      forcedTake = CountCardsLowerThan(unplayedInSuit, lowestUnplayed);
-
-      // For each suit, number of unplayed cards that are higher than my highest cards of the suit (a crude measure of forced allows)
-      forcedAllows = CountCardsHigherThan(unplayedInSuit, highestUnplayed);
-    }
-    // Normalize to number of unplayed cards, so that values are scaled similarly throughout the game
-    extra.mForcedTake[suit] = float(forcedTake) / remaining.Size();
-    extra.mForcedAllow[suit] = float(forcedAllows) / remaining.Size();
-    // For each suit, the min of these two numbers. When greater than zero, the suit is weak, i.e has little control.
-    extra.mVulnerability[suit] = std::min(extra.mForcedTake[suit], extra.mForcedAllow[suit]);
-  }
-}
-
-
 static float normalizeScore(float s) {
-  return s * 19.5;
+  return s;
 }
 
 float oneIfTrue(bool x) {
   return x ? 1.0 : 0.0;
 }
 
+// enum FeatureColumns
+// {
+//   eLegalPlay,
+//   eCardProbPlayer0,
+//   eCardProbPlayer1,
+//   eCardProbPlayer2,
+//   eCardProbPlayer3,
+//   eCardPoints,
+//   eCardOnTable,
+//   eCardIsHighCardInTrick,
+//   ePlayerNotRuledOutForMoon,
+//   eOtherNotRuledOutForMoon,
+// };
+
+FloatMatrix KnowableState::AsFloatMatrix() const
+{
+  FloatMatrix result(kCardsPerDeck, kNumFeaturesPerCard);
+  result.setZero();
+
+  // Fill column eLegalPlay
+  const CardHand choices = LegalPlays();
+  {
+    CardHand::iterator it(choices);
+    while (!it.done()) {
+      Card card = it.next();
+      result(card, eLegalPlay) = 1.0;
+    }
+  }
+
+  // Fill four columns eCardProbPlayer0 .. eCardProbPlayer3
+  float prob[52][4];
+  AsProbabilities(prob);
+  for (int p=0; p<4; p++) {
+    int player = (CurrentPlayer() + p) % 4;
+    for (Card card=0; card<52; card++) {
+      result(card, eCardProbPlayer0+p) = prob[card][player];
+    }
+  }
+
+  // Fill column eCardPoints
+  for (Card card=0; card<52; ++card) {
+  	unsigned pointValue = PointsFor(card);
+  	if (pointValue>0 && (UnplayedCards().HasCard(card) || IsCardOnTable(card))) {
+    	result(card, eCardPoints) = float(pointValue) / 26.0;
+    }
+  }
+
+  // Fill column eCardOnTable
+  for (int i=0; i<PlayInTrick(); ++i) {
+    Card card = GetTrickPlay(i);
+    result(card, eCardOnTable) = 1.0;
+  }
+
+  // Fill column eCardIsHighCardInTrick
+  if (PlayInTrick() > 0)
+    result(HighCardOnTable(), eCardIsHighCardInTrick) = 1.0;
+
+  // ePlayerNotRuledOutForMoon and eOtherNotRuledOutForMoon
+  // There are several cases to consider, which we handle in separate helper functions
+  const unsigned totalPointsTaken = PointsPlayed();
+  if (PointsSplit()) {
+    // Nothing to do, leave the two feature columns all zeros
+  } else if (totalPointsTaken == 0) {
+    FillRuledOutForMoonColumnsWhenNoPointsTaken(choices, result);
+  } else {
+    assert(totalPointsTaken>0 && !PointsSplit());
+    const bool currentPlayerCanShoot = GetScoreFor(CurrentPlayer()) == totalPointsTaken;
+    if (currentPlayerCanShoot) {
+      FillRuledOutForMoonColumnsWhenOtherPlayerRuledOut(choices, result);
+    } else {
+      FillRuledOutForMoonColumnsWhenCurrentPlayerRuledOut(choices, result);
+    }
+  }
+
+  return result;
+}
+
+void KnowableState::FillRuledOutForMoonColumnsWhenNoPointsTaken(const CardHand& choices, FloatMatrix& result) const
+{
+  if (PlayInTrick() == 0)
+  {
+    // No points played, and we are leading.
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // Since no points are taken, we typically won't be able to lead with a point card,
+      // except when we are only holding point cards.
+      // If we lead with a non-point card, neither player is ruled out out.
+      if (PointsFor(card)==0)
+      {
+        result(card, ePlayerNotRuledOutForMoon) = 1.0;
+        result(card, eOtherNotRuledOutForMoon) = 1.0;
+      }
+      else
+      {
+        // If in the rare case that we are forced to lead with a point card,
+        // -- we rule the current player out if the play is a point card not guaranteed to take the trick
+        // -- we rule others out if we play a point card guaranteed to take the trick
+        // But note that the feature vector is "not ruled out", so we have to invert the above logic:
+        // -- The current player is not ruled out if we lead with a forcing card
+        // -- The other player is not ruled out if we lead with a non-forcing card
+        result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(WillCardTakeTrick(card));
+        result(card, eOtherNotRuledOutForMoon) = oneIfTrue(!WillCardTakeTrick(card));
+      }
+    }
+  }
+  else if (PointsOnTable() > 0)
+  {
+    CardHand::iterator it(choices);
+    while (!it.done()) {
+      Card card = it.next();
+      // -- we don't rule ourselves out if we play a card that might take the trick.
+      result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(MightCardTakeTrick(card));
+      // -- we don't rule other players out if we can play a card that doesn't guarantee taking the trick.
+      result(card, eOtherNotRuledOutForMoon) = oneIfTrue(!WillCardTakeTrick(card));
+    }
+  }
+  else
+  {
+    // No points played in either past tricks, or on the table, and we are NOT leading.
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // If there are no points in play
+      // -- No one is ruled out if we play a non-point card
+      if (PointsFor(card) == 0) {
+        result(card, ePlayerNotRuledOutForMoon) = 1.0;
+        result(card, eOtherNotRuledOutForMoon) = 1.0;
+      }
+      else if (SuitOf(card) == kHearts)
+      {
+        // -- we rule ourselves out by playing sluffing a heart, but do not rule out others
+        result(card, ePlayerNotRuledOutForMoon) = 0.0;
+        result(card, eOtherNotRuledOutForMoon) = 1.0;
+      }
+      else
+      {
+        assert(card == CardFor(kQueen, kSpades));
+        // -- if we play the queen of spades:
+        if (TrickSuit() == kSpades)
+        {
+          // ---- if trick suit is spades:
+          // current player is not ruled out if the queen might take the trick
+          result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(MightCardTakeTrick(card));
+          // other player is not ruled out if the queen is not guranteed to take the trick
+          result(card, eOtherNotRuledOutForMoon) = oneIfTrue(!WillCardTakeTrick(card));
+        }
+        else
+        {
+          // ---- if trick suit is not spades:
+          // By sluffing the queen, the current player is ruled out
+          result(card, ePlayerNotRuledOutForMoon) = 0.0;
+          // but other player is not yet ruled out
+          result(card, eOtherNotRuledOutForMoon) = 1.0;
+        }
+      }
+    }
+  }
+}
+
+void KnowableState::FillRuledOutForMoonColumnsWhenOtherPlayerRuledOut(const CardHand& choices, FloatMatrix& result) const
+{
+  assert(PointsPlayed() > 0);
+  assert(GetScoreFor(CurrentPlayer()) == PointsPlayed());
+  if (PlayInTrick() == 0)
+  {
+    // The current player is leading.
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We don't rule ourself out if we play a non-point card or we play a forcing point card
+      result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(PointsFor(card)==0 || WillCardTakeTrick(card));
+    }
+  }
+  else if (PointsOnTable() == 0)
+  {
+    // The current player is following, and no points are on table
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We don't rule ourselves out if we play a non-point card
+      result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(PointsFor(card)==0);
+    }
+  }
+  else
+  {
+    // The current player is following, and points are on table
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We don't rule ourselves out if we play a card that might take the trick
+      result(card, ePlayerNotRuledOutForMoon) = oneIfTrue(MightCardTakeTrick(card));
+    }
+  }
+}
+
+void KnowableState::FillRuledOutForMoonColumnsWhenCurrentPlayerRuledOut(const CardHand& choices, FloatMatrix& result) const
+{
+  assert(PointsPlayed() > 0);
+  assert(GetScoreFor(CurrentPlayer()) == 0);
+
+  const Card kNoSuchCard = 99u;
+  Card otherPlayersPlay = kNoSuchCard;
+  for (int p=0; p<PlayInTrick(); p++)
+  {
+    int player = (PlayerLeadingTrick()+p) % kNumPlayers;
+    if (GetScoreFor(player) != 0) {
+      otherPlayersPlay = GetTrickPlay(p);
+    }
+  }
+
+  if (PlayInTrick() == 0)
+  {
+    assert(otherPlayersPlay == kNoSuchCard);
+    // The current player is leading.
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We don't rule out the other player if we don't play a forcing card
+      result(card, eOtherNotRuledOutForMoon) = oneIfTrue(!WillCardTakeTrick(card));
+    }
+  }
+  else if (PointsOnTable() == 0)
+  {
+    // The current player is following, and no points are on table
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We rule out the other player if we can play a point card and know the other player cannot win the trick.
+      // The other player can't win the trick only if they already have a card on the table that can't win the trick.
+      result(card, eOtherNotRuledOutForMoon) = oneIfTrue(PointsFor(card)==0 || otherPlayersPlay==kNoSuchCard || !MightCardTakeTrick(card));
+    }
+  }
+  else
+  {
+    // The current player is following, and points are on table
+    CardHand::iterator it(choices);
+    while (!it.done())
+    {
+      Card card = it.next();
+      // We can rule out the other player if we can force taking the trick,
+      // or if we can tell that the other player already lost the trick.
+      if (otherPlayersPlay != kNoSuchCard) {
+        // The other player already has their card on the table
+        result(card, eOtherNotRuledOutForMoon) = oneIfTrue(otherPlayersPlay==HighCardOnTable() && !MightCardTakeTrick(card));
+      } else {
+        result(card, eOtherNotRuledOutForMoon) = oneIfTrue(!WillCardTakeTrick(card));
+      }
+    }
+  }
+}
+
+
 tensorflow::Tensor KnowableState::Transform() const
 {
   using namespace std;
   using namespace tensorflow;
 
-  float prob[52][4];
+  float prob[kCardsPerDeck][kNumPlayers];
   #if 1
     AsProbabilities(prob);
   #else
@@ -253,29 +446,24 @@ tensorflow::Tensor KnowableState::Transform() const
     distribution.AsProbabilities(prob);
   #endif
 
-  assert(kNumExtraFeatures == 33);
-
   Tensor mainData(DT_FLOAT, TensorShape({1, kNumFeatures}));
   auto matrix = mainData.matrix<float>();
 
   // Clear the entire feature vector to all zeros.
-  int index = 0;
-  for (; index<kNumFeatures; index++) {
-    matrix(0, index) = 0;
-  }
+  matrix.setZero();
 
   // Fill the "distribution", the p(hascard | card,player)
   // This must be filled such that the current player is first, then other players in normal order.
   // This fills the first four "feature columns" of 52 elements each.
-  index = 0;
-  for (int p=0; p<4; p++) {
+  int index = 0;
+  for (int p=0; p<kNumPlayers; p++) {
     int player = (CurrentPlayer() + p) % 4;
-    for (int i=0; i<52; i++) {
+    for (int i=0; i<kCardsPerDeck; i++) {
       matrix(0, index++) = prob[i][player];
     }
   }
 
-  assert(index == 52*4);
+  assert(index == kCardsPerDeck*kNumPlayers);
 
   const CardHand choices = LegalPlays();
 
@@ -289,7 +477,7 @@ tensorflow::Tensor KnowableState::Transform() const
       matrix(0, index+card) = 1.0;
     }
   }
-  index = 52*5; // we didn't advance index above, so must set it here.
+  index = kCardsPerDeck*5; // we didn't advance index above, so must set it here.
 
   // The 6th column is 'high card on table'
   // It is 1 if the card is is on the table and current the high card in the trick suit.
@@ -298,7 +486,7 @@ tensorflow::Tensor KnowableState::Transform() const
   if (PlayInTrick() != 0) {
     matrix(0, index+HighCardOnTable()) = 1.0;
   }
-  index = 52*6; // we didn't advance index above, so must set it here.
+  index = kCardsPerDeck*6; // we didn't advance index above, so must set it here.
 
   // The last 52-elem feature column is the number of points each unplayed card is worth.
   // Cards already played score 0 here, and of course non-point cards are also 0.
@@ -314,21 +502,10 @@ tensorflow::Tensor KnowableState::Transform() const
    }
   }
 
-  assert(index == 52*7);
+  assert(index == kCardsPerDeck*7);
 
-  // The following code fills 9 slots in the feature vector. These 8 features are "extra" features,
-  // but they are not currently part of the `ExtraFeatures` struct.
-  // TODO: Consolidate them into the ExtraFeatures struct.
-
-  const unsigned totalPointsTaken = PointsPlayed();
-  const bool pointsBroken = totalPointsTaken > 0;
   const bool pointsSplit = PointsSplit();
-  if (!pointsBroken) {
-    assert(!pointsSplit);
-  }
-  if (pointsSplit) {
-    assert(pointsBroken);
-  }
+  const unsigned totalPointsTaken = PointsPlayed();
 
   const bool currentPlayerCanShoot = GetScoreFor(CurrentPlayer()) == totalPointsTaken;
 
@@ -338,7 +515,6 @@ tensorflow::Tensor KnowableState::Transform() const
     unsigned pointsForThisPlayer = GetScoreFor(player);
     if (p>0  && pointsForThisPlayer==totalPointsTaken)
       otherPlayerCanShoot = true;
-    matrix(0, index++) = GetScoreFor(player) / 26.0;    // Points so far for the 4 players, rotated so current player is first.
   }
 
   unsigned pointsOnTheTable = 0;
@@ -346,31 +522,6 @@ tensorflow::Tensor KnowableState::Transform() const
   	Card card = GetTrickPlay(p);
   	pointsOnTheTable += PointsFor(card);
   }
-  matrix(0, index++) = pointsOnTheTable / 26.0;    // The scaled points face up on the table.
-
-  if (!pointsBroken) {
-    assert(!pointsSplit);
-  } else if (pointsSplit) {
-    assert(pointsBroken);
-    assert(!currentPlayerCanShoot);
-    assert(!otherPlayerCanShoot);
-  } else if (!pointsSplit) {
-    assert(pointsBroken);
-    assert(otherPlayerCanShoot != currentPlayerCanShoot);
-    assert(otherPlayerCanShoot || currentPlayerCanShoot);
-  }
-
-  matrix(0, index++) = oneIfTrue(!pointsSplit);
-  matrix(0, index++) = oneIfTrue(pointsSplit);
-  matrix(0, index++) = oneIfTrue(currentPlayerCanShoot);
-  matrix(0, index++) = oneIfTrue(otherPlayerCanShoot);
-
-  assert(index == kNumFeatures - kNumExtraFeatures);
-
-  ExtraFeatures extra_features;
-  ComputeExtraFeatures(extra_features);
-
-  extra_features.AppendTo(matrix, index);
 
   assert(index == kNumFeatures);
 
@@ -383,22 +534,64 @@ Card KnowableState::TransformAndPredict(const tensorflow::SavedModelBundle& mode
   return Predict(model, mainData, playExpectedValue);
 }
 
+DebugStats _before("before");
+DebugStats _after("after");
+
 Card KnowableState::ParsePrediction(const std::vector<tensorflow::Tensor>& outputs, float playExpectedValue[13]) const
 {
   using namespace tensorflow;
-  Tensor prediction = outputs.at(0);
-  assert(prediction.dims() == 2);
-  assert(prediction.NumElements() == 52);
-  auto vec = prediction.flat<float>();
+  Tensor expectedScorePrediction = outputs.at(0);
+  assert(expectedScorePrediction.dims() == 2);
+  assert(expectedScorePrediction.NumElements() == kCardsPerDeck);
+  auto exectedScoreDelta = expectedScorePrediction.flat<float>();
+
+  Tensor moonProbsPrediction = outputs.at(1);
+  assert(moonProbsPrediction.dims() == 3);
+  assert(moonProbsPrediction.NumElements() == 3*kCardsPerDeck);
+  auto moonProbs = moonProbsPrediction.flat<float>();
 
   CardHand choices = LegalPlays();
+
+  // playExpectedValue from the NN prediction is for the delta of additional points that the player will take.
+  // Below we are only going to use the card with the lowest prediction, but we will clip scores below 0 to 0,
+  // so adding the currentScore will actually effect the decision.
+  const float kCurrentScore = GetScoreFor(CurrentPlayer());
+
+  // enum MoonCountKey {
+  //   kCurrentShotTheMoon = 0,
+  //   kOtherShotTheMoon = 1,
+  //   kNumMoonCountKeys = 2
+  // };
+
+  const float kOffset[3] = { -39.0, 13.0, 0.0 };
 
   Card bestCard;
   float bestExpected = 1e99;
   CardHand::iterator it(choices);
   for (int i=0; i<choices.Size(); ++i) {
     Card card = it.next();
-    float expected = normalizeScore(vec(card));
+    float expected = normalizeScore(exectedScoreDelta(card)+kCurrentScore) - 6.5;
+
+    float check = 0;
+    for (int j=0; j<3; j++) {
+      const float moon_p = moonProbs(j + card*3);
+      assert(moon_p >= 0.0);
+      assert(moon_p <= 1.0);
+      check += moon_p;
+
+      expected += moon_p * kOffset[j];
+    }
+    assert(abs(check-1.0) < 0.001);
+
+    const float kMin = -19.5;
+    const float kMax = 18.5;
+
+    _before.Accum(expected);
+
+    expected = std::min(kMax, std::max(kMin, expected));
+
+    _after.Accum(expected);
+
     playExpectedValue[i] = expected;
     if (bestExpected > expected) {
       bestExpected = expected;
@@ -422,42 +615,4 @@ Card KnowableState::Predict(const tensorflow::SavedModelBundle& model, const ten
   }
 
   return ParsePrediction(outputs, playExpectedValue);
-}
-
-static void Print5(FILE* out, float data[4]) {
-  float total = data[0] + data[1] + data[2] + data[3];
-  fprintf(out, "%3.2f %3.2f %3.2f %3.2f %3.2f\n", data[0], data[1], data[2], data[3], total);
-}
-
-void KnowableState::ExtraFeatures::Print(FILE* out) {
-  fprintf(out, "%3.2f %3.2f %3.2f\n", mPlayProgress, mTricksProgess, mInTrickProgress);
-  Print5(out, mGuaranteedSluff);
-  Print5(out, mGuaranteedTake);
-  Print5(out, mStength);
-  Print5(out, mForcedTake);
-  Print5(out, mForcedAllow);
-  Print5(out, mVulnerability);
-}
-
-static void Append5(Eigen::TensorMap<Eigen::Tensor<float, 2, 1, long>, 16, Eigen::MakePointer> m, int &index, float f[4])
-{
-  float total = 0;
-  for (int i=0; i<4; ++i) {
-    total += f[i];
-    m(0, index++) = f[i];
-  }
-  m(0, index++) = total;
-}
-
-void KnowableState::ExtraFeatures::AppendTo(Eigen::TensorMap<Eigen::Tensor<float, 2, 1, long>, 16, Eigen::MakePointer> m, int &index)
-{
-  m(0, index++) = mPlayProgress;
-  m(0, index++) = mTricksProgess;
-  m(0, index++) = mInTrickProgress;
-  Append5(m, index, mGuaranteedSluff);
-  Append5(m, index, mGuaranteedTake);
-  Append5(m, index, mStength);
-  Append5(m, index, mForcedTake);
-  Append5(m, index, mForcedAllow);
-  Append5(m, index, mVulnerability);
 }
