@@ -6,6 +6,7 @@
 #include "lib/MonteCarlo.h"
 #include "lib/PossibilityAnalyzer.h"
 #include "lib/timer.h"
+#include "lib/DebugStats.h"
 
 #include "dlib/logger.h"
 
@@ -187,8 +188,14 @@ void MonteCarlo::Stats::UntrackTrickWinner(GameState& next) {
 
 const float kScoreTypeOffsets[kNumScoreTypes][kNumMoonCountKeys] = {
   { 0.0, 0.0 },     // kBoringScore
-  { -39.5, 13.0 },   // kStandardScore
+  { -39.0, 13.0 },   // kStandardScore
 };
+
+DebugStats _rawScoreStats("MonteCarlo::raw");
+DebugStats _boringScoreStats("MonteCarlo::boring");
+DebugStats _standardScoreStats("MonteCarlo::standard");
+DebugStats _normScoreStats("MonteCarlo::normalized");
+DebugStats _offsetStats("MonteCarlo::offset");
 
 Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
                         , float moonProb[13][kNumMoonCountKeys+1]
@@ -207,6 +214,8 @@ Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
     winsTrickProb[i] = trickWins[i] * kScale;
   }
 
+  _offsetStats.Accum(offset);
+
   assert(scoreType>=kBoringScore);
   assert(scoreType<kNumScoreTypes);
   const float* kScoreOffset = kScoreTypeOffsets[scoreType];
@@ -217,6 +226,8 @@ Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
   for (unsigned i=0; i<choices.Size(); ++i) {
     float score = scores[i] * kScale;
 
+    _rawScoreStats.Accum(score);
+
     if (scoreType == kStandardScore)
       score -= 6.5;
 
@@ -225,15 +236,20 @@ Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
     }
 
     if (scoreType == kBoringScore) {
+      _boringScoreStats.Accum(score);
       assert(score >= 0.0   - kEpsilon);
       assert(score <= 26.0  + kEpsilon);
+      float normScore = (score - offset) / 26.0;
+      _normScoreStats.Accum(normScore);
+      expectedScore[i] = normScore;
     } else {
       assert(scoreType == kStandardScore);
+      _standardScoreStats.Accum(score);
       assert(score >= -19.5 - kEpsilon);
       assert(score <=  18.5 + kEpsilon);
+      expectedScore[i] = score;
     }
 
-    expectedScore[i] = (score - offset) / 26.0;
     if (bestScore > score) {
       bestScore = score;
       bestChoice = i;

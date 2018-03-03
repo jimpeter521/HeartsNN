@@ -2,6 +2,8 @@
 #include "lib/GameState.h"
 #include "lib/PossibilityAnalyzer.h"
 
+#include "lib/DebugStats.h"
+
 #include <tensorflow/core/public/session.h>
 #include <tensorflow/core/protobuf/meta_graph.pb.h>
 #include <tensorflow/cc/saved_model/loader.h>
@@ -155,7 +157,7 @@ static int CountCardsHigherThan(const CardArray& cards, Card sentinel) {
 }
 
 static float normalizeScore(float s) {
-  return s * 19.5;
+  return s;
 }
 
 float oneIfTrue(bool x) {
@@ -372,7 +374,7 @@ void KnowableState::FillRuledOutForMoonColumnsWhenCurrentPlayerRuledOut(const Ca
   Card otherPlayersPlay = kNoSuchCard;
   for (int p=0; p<PlayInTrick(); p++)
   {
-    int player = (PlayerLeadingTrick()+p) % 4;
+    int player = (PlayerLeadingTrick()+p) % kNumPlayers;
     if (GetScoreFor(player) != 0) {
       otherPlayersPlay = GetTrickPlay(p);
     }
@@ -427,7 +429,7 @@ tensorflow::Tensor KnowableState::Transform() const
   using namespace std;
   using namespace tensorflow;
 
-  float prob[52][4];
+  float prob[kCardsPerDeck][kNumPlayers];
   #if 1
     AsProbabilities(prob);
   #else
@@ -454,14 +456,14 @@ tensorflow::Tensor KnowableState::Transform() const
   // This must be filled such that the current player is first, then other players in normal order.
   // This fills the first four "feature columns" of 52 elements each.
   int index = 0;
-  for (int p=0; p<4; p++) {
+  for (int p=0; p<kNumPlayers; p++) {
     int player = (CurrentPlayer() + p) % 4;
-    for (int i=0; i<52; i++) {
+    for (int i=0; i<kCardsPerDeck; i++) {
       matrix(0, index++) = prob[i][player];
     }
   }
 
-  assert(index == 52*4);
+  assert(index == kCardsPerDeck*kNumPlayers);
 
   const CardHand choices = LegalPlays();
 
@@ -475,7 +477,7 @@ tensorflow::Tensor KnowableState::Transform() const
       matrix(0, index+card) = 1.0;
     }
   }
-  index = 52*5; // we didn't advance index above, so must set it here.
+  index = kCardsPerDeck*5; // we didn't advance index above, so must set it here.
 
   // The 6th column is 'high card on table'
   // It is 1 if the card is is on the table and current the high card in the trick suit.
@@ -484,7 +486,7 @@ tensorflow::Tensor KnowableState::Transform() const
   if (PlayInTrick() != 0) {
     matrix(0, index+HighCardOnTable()) = 1.0;
   }
-  index = 52*6; // we didn't advance index above, so must set it here.
+  index = kCardsPerDeck*6; // we didn't advance index above, so must set it here.
 
   // The last 52-elem feature column is the number of points each unplayed card is worth.
   // Cards already played score 0 here, and of course non-point cards are also 0.
@@ -500,7 +502,7 @@ tensorflow::Tensor KnowableState::Transform() const
    }
   }
 
-  assert(index == 52*7);
+  assert(index == kCardsPerDeck*7);
 
   const bool pointsSplit = PointsSplit();
   const unsigned totalPointsTaken = PointsPlayed();
@@ -532,22 +534,64 @@ Card KnowableState::TransformAndPredict(const tensorflow::SavedModelBundle& mode
   return Predict(model, mainData, playExpectedValue);
 }
 
+DebugStats _before("before");
+DebugStats _after("after");
+
 Card KnowableState::ParsePrediction(const std::vector<tensorflow::Tensor>& outputs, float playExpectedValue[13]) const
 {
   using namespace tensorflow;
-  Tensor prediction = outputs.at(0);
-  assert(prediction.dims() == 2);
-  assert(prediction.NumElements() == 52);
-  auto vec = prediction.flat<float>();
+  Tensor expectedScorePrediction = outputs.at(0);
+  assert(expectedScorePrediction.dims() == 2);
+  assert(expectedScorePrediction.NumElements() == kCardsPerDeck);
+  auto exectedScoreDelta = expectedScorePrediction.flat<float>();
+
+  Tensor moonProbsPrediction = outputs.at(1);
+  assert(moonProbsPrediction.dims() == 3);
+  assert(moonProbsPrediction.NumElements() == 3*kCardsPerDeck);
+  auto moonProbs = moonProbsPrediction.flat<float>();
 
   CardHand choices = LegalPlays();
+
+  // playExpectedValue from the NN prediction is for the delta of additional points that the player will take.
+  // Below we are only going to use the card with the lowest prediction, but we will clip scores below 0 to 0,
+  // so adding the currentScore will actually effect the decision.
+  const float kCurrentScore = GetScoreFor(CurrentPlayer());
+
+  // enum MoonCountKey {
+  //   kCurrentShotTheMoon = 0,
+  //   kOtherShotTheMoon = 1,
+  //   kNumMoonCountKeys = 2
+  // };
+
+  const float kOffset[3] = { -39.0, 13.0, 0.0 };
 
   Card bestCard;
   float bestExpected = 1e99;
   CardHand::iterator it(choices);
   for (int i=0; i<choices.Size(); ++i) {
     Card card = it.next();
-    float expected = normalizeScore(vec(card));
+    float expected = normalizeScore(exectedScoreDelta(card)+kCurrentScore) - 6.5;
+
+    float check = 0;
+    for (int j=0; j<3; j++) {
+      const float moon_p = moonProbs(j + card*3);
+      assert(moon_p >= 0.0);
+      assert(moon_p <= 1.0);
+      check += moon_p;
+
+      expected += moon_p * kOffset[j];
+    }
+    assert(abs(check-1.0) < 0.001);
+
+    const float kMin = -19.5;
+    const float kMax = 18.5;
+
+    _before.Accum(expected);
+
+    expected = std::min(kMax, std::max(kMin, expected));
+
+    _after.Accum(expected);
+
     playExpectedValue[i] = expected;
     if (bestExpected > expected) {
       bestExpected = expected;

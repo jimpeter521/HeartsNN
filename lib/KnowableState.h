@@ -54,7 +54,7 @@ public:
 
   void PrepareHands(CardHands& hands) const;
 
-  void AsProbabilities(float prob[52][4]) const;
+  void AsProbabilities(float prob[kCardsPerDeck][kNumPlayers]) const;
     // Fill the prob array with approximate probabilities of player holding the card.
     // For the current player, we assign 1.0 probability to each card in hand.
     // For the other 3 players, the probabilities are just assigned uniformly across the players who are
