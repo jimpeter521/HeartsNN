@@ -145,8 +145,8 @@ void runGame(StrategyPtr players[4]) {
   if (outcome.shotTheMoon()) {
     printf("Shot the moon!\n");
   }
-  printf("Final scores: %3.1f %3.1f %3.1f %3.1f\n", outcome.standardScore(0), outcome.standardScore(1)
-            , outcome.standardScore(2), outcome.standardScore(3));
+  printf("Final scores: %3.1f %3.1f %3.1f %3.1f\n", outcome.ZeroMeanStandardScore(0), outcome.ZeroMeanStandardScore(1)
+            , outcome.ZeroMeanStandardScore(2), outcome.ZeroMeanStandardScore(3));
 }
 
 int main(int argc, char** argv)

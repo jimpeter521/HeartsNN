@@ -169,8 +169,8 @@ if __name__ == '__main__':
     tf.logging.set_verbosity(tf.logging.INFO)
 
     # TODO: Make this a command line option
-    if os.path.isdir(ROOT_MODEL_DIR):
-        shutil.rmtree(ROOT_MODEL_DIR)
+    # if os.path.isdir(ROOT_MODEL_DIR):
+    #     shutil.rmtree(ROOT_MODEL_DIR)
 
     dataDir = 'xx.m' if len(sys.argv)==1 else sys.argv[1]
 
@@ -190,13 +190,13 @@ if __name__ == '__main__':
     }
     serving_input_receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
-    num_batches = 1 +( len(eval_memmaps[0]) // BATCH)
+    num_batches = (len(eval_memmaps[0]) + BATCH - 1) // BATCH
     threshold = num_batches*5
     print('num_batches, threshold:', num_batches, threshold)
 
     evals = {}
-    for hidden_depth in [1, 2]:
-        for hidden_width in range(150, 226, 25):
+    for hidden_depth in [2]:
+        for hidden_width in [200]:
             for activation in ['relu']:
                 params = {
                     'hidden_depth': hidden_depth,

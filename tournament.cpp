@@ -14,27 +14,53 @@
 #include <string>
 #include <algorithm>
 
-tensorflow::SavedModelBundle gModel;
-void loadModel(const char* path) {
-  using namespace tensorflow;
-  SessionOptions session_options;
-  RunOptions run_options;
-  auto status = LoadSavedModel(session_options, run_options, path, {kSavedModelTagServe}, &gModel);
-  if (!status.ok()) {
-     std::cerr << "Failed: " << status;
-     exit(1);
+std::vector<std::string> split(const std::string& s, char delimiter=' ')
+{
+  std::vector<std::string> tokens;
+  std::string token;
+  std::istringstream tokenStream(s);
+  while (std::getline(tokenStream, token, delimiter))
+  {
+    tokens.push_back(token);
+  }
+  return tokens;
+}
+
+enum PlayerRole {
+  kChampion,
+  kOpponent
+};
+
+tensorflow::SavedModelBundle gChampionModel;
+tensorflow::SavedModelBundle gOpponentModel;
+
+StrategyPtr loadIntuition(const std::string& path, PlayerRole role) {
+  if (path == "random") {
+    StrategyPtr intuition(new RandomStrategy());
+    return intuition;
+  } else {
+    using namespace tensorflow;
+    SessionOptions session_options;
+    RunOptions run_options;
+    tensorflow::SavedModelBundle* model = role==kChampion ? &gChampionModel : &gOpponentModel;
+    auto status = LoadSavedModel(session_options, run_options, path, {kSavedModelTagServe}, model);
+    if (!status.ok()) {
+       std::cerr << "Failed: " << status;
+       exit(1);
+    }
+    StrategyPtr intuition(new DnnModelIntuition(*model));
+    return intuition;
   }
 }
 
 int gNumMatches = 0;
 uint128_t* gDeals = 0;
 
-const char* gChampionStr = "simple";
+const char* gChampionStr = "random#100";
 const char* gOpponentStr = "random";
 
 StrategyPtr gOpponent;
 StrategyPtr gChampion;
-const char* gModelPath = "./savedmodel";
 
 bool gSaveMoonDeals = true;
 bool gQuiet = false;
@@ -43,32 +69,49 @@ RandomGenerator rng;
 
 AnnotatorPtr kNoAnnotator(0);
 
-const bool parallel = true;
 
-StrategyPtr makePlayer(const char* arg) {
-  StrategyPtr player;
-  if (arg == 0 || std::string(arg) == std::string("random")) {
-    player = StrategyPtr(new RandomStrategy());
+const char* PlayerName(PlayerRole role) {
+  return role==kChampion ? "Champion" : "Opponent";
+}
+
+StrategyPtr makePlayer(PlayerRole role, const std::string& intuitionName, int rollouts)
+{
+  StrategyPtr intuition = loadIntuition(intuitionName, role);
+  if (rollouts == 0) {
+    fprintf(stderr, "Player %s using intuition with %s\n", PlayerName(role), intuitionName.c_str());
+    return intuition;
+  } else {
+    fprintf(stderr, "Player %s using montecarlo on %s with %d rollouts\n", PlayerName(role), intuitionName.c_str(), rollouts);
+    const bool kParallel = true;
+    return StrategyPtr(new MonteCarlo(intuition, rollouts, kParallel, kNoAnnotator));
   }
-  else if (std::string(arg) == std::string("simple")) {
-    StrategyPtr intuition(new RandomStrategy());
-    player = StrategyPtr(new MonteCarlo(intuition, 1000, parallel, kNoAnnotator));
+}
+
+StrategyPtr makePlayer(PlayerRole role, const std::string& arg)
+{
+  const int kDefaultRollouts = 40;
+
+  std::string intuitionName;
+  int rollouts;
+
+  const char kSep = '#';
+  if (arg[arg.size()-1] == kSep) {
+    intuitionName = arg.substr(0, arg.size()-1);
+    rollouts = kDefaultRollouts;
+  } else {
+    std::vector<std::string> parts = split(arg, '#');
+    assert(parts.size() > 0);
+    assert(parts.size() <= 2);
+
+    intuitionName = parts[0];
+
+    if (parts.size() == 1) {
+      rollouts = 0;
+    } else {
+      rollouts = std::stoi(parts[1]);
+    }
   }
-  else if (std::string(arg) == std::string("intuition")) {
-    loadModel(gModelPath);
-    player = StrategyPtr(new DnnModelIntuition(gModel));
-  }
-  else if (std::string(arg) == std::string("dnnmonte")) {
-    loadModel(gModelPath);
-    StrategyPtr intuition(new DnnModelIntuition(gModel));
-    player = StrategyPtr(new MonteCarlo(intuition, 100, parallel, kNoAnnotator));
-  }
-  else {
-    loadModel(arg);
-    StrategyPtr intuition(new DnnModelIntuition(gModel));
-    player = StrategyPtr(new MonteCarlo(intuition, 100, parallel, kNoAnnotator));
-  }
-  return player;
+  return makePlayer(role, intuitionName, rollouts);
 }
 
 void usage() {
@@ -140,11 +183,6 @@ void parseArgs(int argc, char** argv) {
     }
 
     switch (ch) {
-      case 'm':
-      {
-         gModelPath = optarg;
-         break;
-      }
       case 'o':
       {
         gOpponentStr = optarg;
@@ -183,11 +221,6 @@ void parseArgs(int argc, char** argv) {
   if (gDeals == 0) {
     randomDeals(1);
   }
-
-  printf("Setting champion to %s\n", gChampionStr);
-  gChampion = makePlayer(gChampionStr);
-  printf("Setting opponent to %s\n", gOpponentStr);
-  gOpponent = makePlayer(gOpponentStr);
 }
 
 typedef StrategyPtr Player;
@@ -212,9 +245,9 @@ struct Scores {
     for (int j=0; j<4; ++j) {
       StrategyPtr player = players[j];
       int playerIndex = player == gChampion ? 0 : 1;
-      mPlayer[playerIndex] += outcome.standardScore(j);
-      mPosition[j] += outcome.standardScore(j);
-      mCross[playerIndex][j] += outcome.standardScore(j);
+      mPlayer[playerIndex] += outcome.ZeroMeanStandardScore(j);
+      mPosition[j] += outcome.ZeroMeanStandardScore(j);
+      mCross[playerIndex][j] += outcome.ZeroMeanStandardScore(j);
     }
   }
 
@@ -249,7 +282,7 @@ void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, boo
     for (int i=0; i<4; ++i) {
       StrategyPtr player = players[i];
       int playerIndex = player == gChampion ? 0 : 1;
-      printf("%s=%5.1f ", name[playerIndex], outcome.standardScore(i));
+      printf("%s=%5.1f ", name[playerIndex], outcome.ZeroMeanStandardScore(i));
     }
     if (moon)
       printf("  Shot the moon!\n");
@@ -258,19 +291,19 @@ void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, boo
   }
 }
 
-void runOneMatch(const uint128_t dealIndex, float playerScores[2]) {
+void runOneMatch(StrategyPtr champion, StrategyPtr opponent, const uint128_t dealIndex, float playerScores[2]) {
 
   // A match is six games with the same deal of cards to the four positions (N, E, S, W)
   // The two player strategies each occupy two of the table positions.
   // There are six unique arrangements of the two player strategies.
   // We'll rollup all of the game scores into one score for each strategy.
   Table match[6] = {
-    { gChampion, gChampion, gOpponent, gOpponent },
-    { gChampion, gOpponent, gChampion, gOpponent },
-    { gChampion, gOpponent, gOpponent, gChampion },
-    { gOpponent, gOpponent, gChampion, gChampion },
-    { gOpponent, gChampion, gOpponent, gChampion },
-    { gOpponent, gChampion, gChampion, gOpponent },
+    { champion, champion, opponent, opponent },
+    { champion, opponent, champion, opponent },
+    { champion, opponent, opponent, champion },
+    { opponent, opponent, champion, champion },
+    { opponent, champion, opponent, champion },
+    { opponent, champion, champion, opponent },
   };
 
   Scores matchScores;
@@ -307,22 +340,55 @@ void runOneMatch(const uint128_t dealIndex, float playerScores[2]) {
 
 }
 
-int main(int argc, char** argv)
-{
-  parseArgs(argc, argv);
-
+float runOneTournament(StrategyPtr champion, StrategyPtr opponent) {
   float playerScores[2] = {0};
 
   for (int i=0; i<gNumMatches; ++i) {
-    runOneMatch(gDeals[i], playerScores);
+    runOneMatch(champion, opponent, gDeals[i], playerScores);
   }
 
-  printf("Champion: %4.2f\n", playerScores[0] / (gNumMatches*6.0));
-  printf("Opponent: %4.2f\n", playerScores[1] / (gNumMatches*6.0));
-  if (playerScores[0] <= playerScores[1]) {
-    printf("Champion wins\n");
-  } else {
-    printf("Oppponent wins\n");
+  if (!gQuiet) {
+    printf("Champion: %4.2f\n", playerScores[0] / (gNumMatches*6.0));
+    printf("Opponent: %4.2f\n", playerScores[1] / (gNumMatches*6.0));
+    if (playerScores[0] <= playerScores[1]) {
+      printf("Champion wins\n");
+    } else {
+      printf("Oppponent wins\n");
+    }
+  }
+
+  return playerScores[0] / (gNumMatches*6.0) ; // the champ's score
+}
+
+// int main(int argc, char** argv)
+// {
+//   parseArgs(argc, argv);
+//
+//   gChampion = makePlayer(kChampion, gChampionStr);
+//   gOpponent = makePlayer(kOpponent, gOpponentStr);
+//
+//   runOneTournament(gChampion, gOpponent);
+//
+//   return 0;
+// }
+
+int main(int argc, char** argv)
+{
+  const char* modelPath = "pereubu.save/d2w200_relu";
+  gQuiet = true;
+  gNumMatches = 50;
+  randomDeals(gNumMatches);
+
+  for (int rollouts=1; rollouts<=51; rollouts+=10) {
+    // Champion is pure intuition
+    gChampion = makePlayer(kChampion,  "random", 100);
+
+    // Opponent is monte carlo on random intuition with given number of rollouts
+    gOpponent = makePlayer(kOpponent, modelPath, rollouts);
+
+    float champScore = runOneTournament(gChampion, gOpponent);
+    printf("%d\t%f\n", rollouts, champScore);
+    fflush(stdout);
   }
 
   return 0;

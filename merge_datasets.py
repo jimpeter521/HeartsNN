@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-# Read one or more memmap datasets (as created by transform.py)
-# and merge them into a larger dataset.
+# Read one or more numpy datasets (as created by hearts.cpp)
+# and merge them into a larger dataset in the numpy memmap format.
+# This pipeline currently can only produce an 'xx.m' dataset,
+# i.e. one containing gamestates for all 47 possible play numbers.
 
 import glob
 import memmap
@@ -32,7 +34,8 @@ def merge_dataset(purpose, hashes):
     assert N == len(group['moon'])
     assert N == len(group['score'])
     assert N == len(group['trick'])
-    memmap.save_group(group, purpose + '/xx.m')
+
+    memmap.save_group(group, purpose + '/xx.m', 2*1024*1024)
 
 if __name__ == '__main__':
 

@@ -23,16 +23,8 @@ static int firstWith(unsigned a[4], unsigned val) {
   return -1;
 }
 
-static int firstWithMany(unsigned a[4]) {
-  for (int i=0; i<4; i++) {
-    if (a[i] > 1) {
-      return i;
-    }
-  }
-  assert(false);
-  return -1;
-}
-
+// Record a GameOutcome. The `score` array here comes directly from the GameState, and is simply
+// the total number of points for each player, which always sums to 26.
 void GameOutcome::Set(unsigned pointTricks[4], unsigned score[4])
 {
   const unsigned kNumBytes = sizeof(mPointTricks);
@@ -43,13 +35,7 @@ void GameOutcome::Set(unsigned pointTricks[4], unsigned score[4])
   // We're going to count the number of players who took zero tricks with points, one trick with points,
   // and more than one trick with points.
   int withZeroTricks = 0;
-  int withOneTrick = 0;
   int withMultipleTricks = 0;
-
-  // We accumulate the number of points taken by players who took exactly one trick.
-  // We only use this value in the case where it appears that a player may have stopped another player.
-  // We do this only because we don't consider it a successful stop if the player took the queen of spades.
-  int pointsInOneTricks = 0;
 
   unsigned total = 0;
   for (int i=0; i<4; i++)
@@ -57,16 +43,13 @@ void GameOutcome::Set(unsigned pointTricks[4], unsigned score[4])
     total += mScores[i];
     if (mPointTricks[i] == 0) {
       ++withZeroTricks;
-    } else if (mPointTricks[i] == 1) {
-      ++withOneTrick;
-      pointsInOneTricks += mScores[i];
     } else {
-      assert(mPointTricks[i] > 1);
+      assert(mPointTricks[i] > 0);
       ++withMultipleTricks;
     }
   }
   assert(total == kExpectedTotal);
-  assert(4 == withZeroTricks+withOneTrick+withMultipleTricks);
+  assert(4 == withZeroTricks+withMultipleTricks);
 
   // We can tell that one player shot the moon when the other three players took no points
   mShotTheMoon = withZeroTricks==3;
@@ -76,11 +59,11 @@ void GameOutcome::Set(unsigned pointTricks[4], unsigned score[4])
   }
 }
 
-void GameOutcome::updateMoonStats(unsigned currentPlayer, int iChoice, int moonCounts[13][kNumMoonCountKeys]) const
+void GameOutcome::updateMoonStats(unsigned currentPlayer, int iChoice, unsigned moonCounts[13][kNumMoonCountKeys]) const
 {
   if (mShotTheMoon) {
     unsigned myScore = mScores[currentPlayer];
-    assert(myScore <= 26u);
+    assert(myScore <= kExpectedTotal);
     if (myScore == kExpectedTotal) {
       ++moonCounts[iChoice][kCurrentShotTheMoon];
     } else {
@@ -90,26 +73,27 @@ void GameOutcome::updateMoonStats(unsigned currentPlayer, int iChoice, int moonC
   }
 }
 
-float GameOutcome::boringScore(unsigned currentPlayer) const {
-  assert(mScores[currentPlayer] <= 26u);
-  float score = mScores[currentPlayer];
-  assert(score >= 0.0);
-  assert(score <= 26.0);
-  return score;
+unsigned GameOutcome::PointsTaken(unsigned currentPlayer) const {
+  unsigned points = mScores[currentPlayer];
+  assert(points <= kExpectedTotal);
+  return points;
 }
 
-float GameOutcome::standardScore(unsigned currentPlayer) const
+float GameOutcome::ZeroMeanStandardScore(unsigned currentPlayer) const
 {
-  assert(mScores[currentPlayer] <= 26u);
+  unsigned pointsTaken = PointsTaken(currentPlayer);
   if (!mShotTheMoon)
   {
-    return boringScore(currentPlayer) - 6.5;
+    assert(pointsTaken != kExpectedTotal);
+    return float(pointsTaken) - 6.5;
   }
   else
   {
-    if (mScores[currentPlayer] == 26u)
+    if (pointsTaken == kExpectedTotal)
       return -19.5;
-    else
+    else {
+      assert(pointsTaken == 0);
       return 6.5;
+    }
   }
 }

@@ -43,17 +43,17 @@ private:
     : mNumLegalPlays(other.mNumLegalPlays)
     , mTotalAlternates(other.mTotalAlternates)
     {
-      memcpy(scores, other.scores, sizeof(scores));
-      memcpy(trickWins, other.trickWins, sizeof(trickWins));
-      memcpy(moonCounts, other.moonCounts, sizeof(moonCounts));
+      memcpy(mTotalPoints, other.mTotalPoints, sizeof(mTotalPoints));
+      memcpy(mTotalTrickWins, other.mTotalTrickWins, sizeof(mTotalTrickWins));
+      memcpy(mTotalMoonCounts, other.mTotalMoonCounts, sizeof(mTotalMoonCounts));
     }
 
     void operator=(const Stats& other) {
       mNumLegalPlays = other.mNumLegalPlays;
       mTotalAlternates = other.mTotalAlternates;
-      memcpy(scores, other.scores, sizeof(scores));
-      memcpy(trickWins, other.trickWins, sizeof(trickWins));
-      memcpy(moonCounts, other.moonCounts, sizeof(moonCounts));
+      memcpy(mTotalPoints, other.mTotalPoints, sizeof(mTotalPoints));
+      memcpy(mTotalTrickWins, other.mTotalTrickWins, sizeof(mTotalTrickWins));
+      memcpy(mTotalMoonCounts, other.mTotalMoonCounts, sizeof(mTotalMoonCounts));
     }
 
     void operator+=(const Stats& other);
@@ -68,27 +68,30 @@ private:
 
     void FinishedOneAlternate() { ++mTotalAlternates; }
 
-    Card ComputeProbabilities(const CardHand& choices
+    void ComputeTargetValues(const CardHand& choices
                             , float moonProb[13][kNumMoonCountKeys+1]
                             , float winsTrickProb[13]
-                            , float expectedScore[13]
-                            , ScoreType scoreType
-                            , float offset=0.0) const;
+                            , float expectedDelta[13]
+                            , unsigned pointsAlreadyTaken) const;
+
+    Card BestPlay(const CardHand& choices) const;
+
   private:
     unsigned mNumLegalPlays;
 
     unsigned mTotalAlternates;
 
-    // scores is the cumulated score across all simulated alternates for each legal play
-    float scores[13];
+    // mTotalPoints is the cumulated points across all simulated alternates for each legal play
+    // points come directly from GameState where they are in the range of 0..26.
+    unsigned mTotalPoints[13];
 
     // trickWins is a count per legal play of the number of times the play wins the trick.
     // We use it to estimate the probability that if we play this card it will take the trick.
-    unsigned trickWins[13];
+    unsigned mTotalTrickWins[13];
 
-    int moonCounts[13][kNumMoonCountKeys];
-       // Counts across all of the rollouts of when one of four significant events related to shooting the moon occured
-       // There is a fifth event, which is the common case where points are split without anyone coming close to shooting moon
+    unsigned mTotalMoonCounts[13][kNumMoonCountKeys];
+       // Counts across all of the rollouts of when one of two significant events related to shooting the moon occured
+       // There is a third event, which is the common case where points are split without anyone coming close to shooting moon
        // mc[i][0] is I shot the moon,
        // mc[i][1] is other shot the moon
   };
