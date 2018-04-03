@@ -360,18 +360,19 @@ float runOneTournament(StrategyPtr champion, StrategyPtr opponent) {
   return playerScores[0] / (gNumMatches*6.0) ; // the champ's score
 }
 
-// int main(int argc, char** argv)
-// {
-//   parseArgs(argc, argv);
-//
-//   gChampion = makePlayer(kChampion, gChampionStr);
-//   gOpponent = makePlayer(kOpponent, gOpponentStr);
-//
-//   runOneTournament(gChampion, gOpponent);
-//
-//   return 0;
-// }
+#if 1
+int main(int argc, char** argv)
+{
+  parseArgs(argc, argv);
 
+  gChampion = makePlayer(kChampion, gChampionStr);
+  gOpponent = makePlayer(kOpponent, gOpponentStr);
+
+  runOneTournament(gChampion, gOpponent);
+
+  return 0;
+}
+#else
 int main(int argc, char** argv)
 {
   const char* modelPath = "pereubu.save/d2w200_relu";
@@ -390,6 +391,6 @@ int main(int argc, char** argv)
     printf("%d\t%f\n", rollouts, champScore);
     fflush(stdout);
   }
-
   return 0;
 }
+#endif
