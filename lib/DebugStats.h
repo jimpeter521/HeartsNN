@@ -16,9 +16,11 @@ public:
 
   void Print() {
     #if DEBUG_STATS
-    float avg = mSum1 / mNum;
-    float std = sqrt(mSum2/mNum - avg*avg);
-    printf("%s Mean: %4.2f, std: %4.2f, min: %4.2f, max: %4.2f\n", mLabel, avg, std, mMin, mMax);
+    if (mNum > 0) {
+      float avg = mSum1 / mNum;
+      float std = sqrt(mSum2/mNum - avg*avg);
+      printf("%s Mean: %4.2f, std: %4.2f, min: %4.2f, max: %4.2f\n", mLabel, avg, std, mMin, mMax);
+    }
     #endif
   }
 

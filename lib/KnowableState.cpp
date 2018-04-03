@@ -157,7 +157,7 @@ static int CountCardsHigherThan(const CardArray& cards, Card sentinel) {
 }
 
 static float normalizeScore(float s) {
-  return s;
+  return s * 26.0;
 }
 
 float oneIfTrue(bool x) {
@@ -534,8 +534,9 @@ Card KnowableState::TransformAndPredict(const tensorflow::SavedModelBundle& mode
   return Predict(model, mainData, playExpectedValue);
 }
 
-DebugStats _before("before");
-DebugStats _after("after");
+DebugStats _expectedDeltaPredictionUnclipped("KnowableState::expectedDeltaPredictionUnclipped");
+DebugStats _expectedPointsPrediction("KnowableState::expectedPointsPrediction");
+DebugStats _expectedScorePrediction("KnowableState::expectedScorePrediction");
 
 Card KnowableState::ParsePrediction(const std::vector<tensorflow::Tensor>& outputs, float playExpectedValue[13]) const
 {
@@ -570,7 +571,17 @@ Card KnowableState::ParsePrediction(const std::vector<tensorflow::Tensor>& outpu
   CardHand::iterator it(choices);
   for (int i=0; i<choices.Size(); ++i) {
     Card card = it.next();
-    float expected = normalizeScore(exectedScoreDelta(card)+kCurrentScore) - 6.5;
+
+    float expectedDeltaPrediction = exectedScoreDelta(card);
+    _expectedDeltaPredictionUnclipped.Accum(expectedDeltaPrediction);
+    const float kMin = 0.0;
+    expectedDeltaPrediction = std::max(kMin, expectedDeltaPrediction);
+    float expectedPointsPrediction = normalizeScore(expectedDeltaPrediction) + kCurrentScore;
+    const float kMax = 26.0;
+    expectedPointsPrediction = std::min(kMax, expectedPointsPrediction);
+    _expectedPointsPrediction.Accum(expectedPointsPrediction);
+
+    float expected_score = expectedPointsPrediction - 6.5;
 
     float check = 0;
     for (int j=0; j<3; j++) {
@@ -579,22 +590,15 @@ Card KnowableState::ParsePrediction(const std::vector<tensorflow::Tensor>& outpu
       assert(moon_p <= 1.0);
       check += moon_p;
 
-      expected += moon_p * kOffset[j];
+      expected_score += moon_p * kOffset[j];
     }
     assert(abs(check-1.0) < 0.001);
 
-    const float kMin = -19.5;
-    const float kMax = 18.5;
+    _expectedScorePrediction.Accum(expected_score);
 
-    _before.Accum(expected);
-
-    expected = std::min(kMax, std::max(kMin, expected));
-
-    _after.Accum(expected);
-
-    playExpectedValue[i] = expected;
-    if (bestExpected > expected) {
-      bestExpected = expected;
+    playExpectedValue[i] = expected_score;
+    if (bestExpected > expected_score) {
+      bestExpected = expected_score;
       bestCard = card;
     }
   }

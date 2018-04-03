@@ -17,7 +17,6 @@ using namespace std;
 using namespace tensorflow;
 
 DnnModelIntuition::~DnnModelIntuition() {
-  printf("Deleting DnnModelIntuition\n");
   delete mPredictor;
 }
 

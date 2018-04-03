@@ -39,6 +39,7 @@ const uint8_t kCardsPerSuit = 13u;
 const uint8_t kCardsPerHand = 13u;
 const uint8_t kCardsPerDeck = kSuitsPerDeck * kCardsPerSuit;
 const unsigned kNumPlayers = 4u;
+const unsigned kMaxPointsPerHand = 26u;
 
 inline Suit SuitOf(Card card) { return card / kCardsPerSuit; }
 inline Rank RankOf(Card card) { return card % kCardsPerSuit; }

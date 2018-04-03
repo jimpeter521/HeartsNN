@@ -29,7 +29,7 @@ MonteCarlo::MonteCarlo(const StrategyPtr& intuition
 : Strategy(annotator)
 , mIntuition(intuition)
 , kNumAlternates(numAlternates)
-, kNumThreads(parallel ? std::thread::hardware_concurrency()/2 : 0)
+, kNumThreads(parallel ? (3*std::thread::hardware_concurrency())/4 : 0)
 , mParallel(parallel)
 , mThreadPool(kNumThreads)
 {
@@ -109,9 +109,12 @@ MonteCarlo::Stats MonteCarlo::RunParallelTasks(const KnowableState& knowableStat
 
   for (int i=0; i<kNumThreads; ++i)
   {
-    taskStats[i] = dlib::async(mThreadPool, [this, knowableState, analyzer, choices, rng, kNumAlts]()
-        {return this->RunRolloutsTask(knowableState, analyzer, choices, rng, kNumAlts);
-    });
+    taskStats[i] = dlib::async(mThreadPool, [this, i, knowableState, analyzer, choices, kNumAlts]()
+      {
+        const RandomGenerator& rng = RandomGenerator::ThreadSpecific();
+        return this->RunRolloutsTask(knowableState, analyzer, choices, rng, kNumAlts);
+      }
+    );
   }
 
   for (int i=0; i<kNumThreads; ++i)
@@ -146,109 +149,88 @@ Card MonteCarlo::choosePlay(const KnowableState& knowableState, const RandomGene
     totalStats = RunParallelTasks(knowableState, rng, analyzer, choices);
   }
 
-  float moonProb[13][3];
-  float winsTrickProb[13];
-  float expectedScore[13];
-
-  // TODO: Better name, this does more than compute probabilities.
-  Card bestPlay = totalStats.ComputeProbabilities(choices, moonProb, winsTrickProb, expectedScore, kStandardScore);
-
   const AnnotatorPtr annotator = getAnnotator();
   if (annotator) {
-    float offset = float(knowableState.GetScoreFor(knowableState.CurrentPlayer()));
-    totalStats.ComputeProbabilities(choices, moonProb, winsTrickProb, expectedScore, kBoringScore, offset);
-    annotator->OnWriteData(knowableState, analyzer, expectedScore, moonProb, winsTrickProb);
+    float moonProb[13][3];
+    float winsTrickProb[13];
+    float expectedDelta[13];
+    const unsigned currentPoints = knowableState.GetScoreFor(knowableState.CurrentPlayer());
+    totalStats.ComputeTargetValues(choices, moonProb, winsTrickProb, expectedDelta, currentPoints);
+    annotator->OnWriteData(knowableState, analyzer, expectedDelta, moonProb, winsTrickProb);
   }
 
   delete analyzer;
+
+  Card bestPlay = totalStats.BestPlay(choices);
   return bestPlay;
 }
+
+// mTotalPoints is the cumulated points across all simulated alternates for each legal play
+// points come directly from GameState where they are in the range of 0..26.
+unsigned mTotalPoints[13];
+
+// trickWins is a count per legal play of the number of times the play wins the trick.
+// We use it to estimate the probability that if we play this card it will take the trick.
+unsigned mTotalTrickWins[13];
+
+unsigned mTotalMoonCounts[13][kNumMoonCountKeys];
+
+DebugStats _UpdateForGameOutcome("MonteCarlo::Stats::UpdateForGameOutcome");
+DebugStats _expectedPoints("MonteCarlo::expectedPoints");
+DebugStats _expectedDelta("MonteCarlo::expectedDelta");
+DebugStats _standardScoreStats("MonteCarlo::standard");
 
 MonteCarlo::Stats::Stats(unsigned numLegalPlays)
 : mNumLegalPlays(numLegalPlays)
 , mTotalAlternates(0)
 {
-  bzero(scores, sizeof(scores));
-  bzero(trickWins, sizeof(trickWins));
-  bzero(moonCounts, sizeof(moonCounts));
+  bzero(mTotalPoints, sizeof(mTotalPoints));
+  bzero(mTotalTrickWins, sizeof(mTotalTrickWins));
+  bzero(mTotalMoonCounts, sizeof(mTotalMoonCounts));
 }
 
 void MonteCarlo::Stats::UpdateForGameOutcome(const GameOutcome& outcome, int currentPlayer, int iPlay) {
-  outcome.updateMoonStats(currentPlayer, iPlay, moonCounts);
-  scores[iPlay] += outcome.boringScore(currentPlayer);
+  outcome.updateMoonStats(currentPlayer, iPlay, mTotalMoonCounts);
+  unsigned pointsTaken = outcome.PointsTaken(currentPlayer);
+  _UpdateForGameOutcome.Accum(float(pointsTaken));
+  mTotalPoints[iPlay] += pointsTaken;
 }
 
 void MonteCarlo::Stats::TrackTrickWinner(GameState& next, int iPlay) {
-  next.TrackTrickWinner(trickWins + iPlay);
+  next.TrackTrickWinner(mTotalTrickWins + iPlay);
 }
 
 void MonteCarlo::Stats::UntrackTrickWinner(GameState& next) {
   next.TrackTrickWinner(0);
 }
 
-const float kScoreTypeOffsets[kNumScoreTypes][kNumMoonCountKeys] = {
-  { 0.0, 0.0 },     // kBoringScore
-  { -39.0, 13.0 },   // kStandardScore
-};
-
-DebugStats _rawScoreStats("MonteCarlo::raw");
-DebugStats _boringScoreStats("MonteCarlo::boring");
-DebugStats _standardScoreStats("MonteCarlo::standard");
-DebugStats _normScoreStats("MonteCarlo::normalized");
-DebugStats _offsetStats("MonteCarlo::offset");
-
-Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
-                        , float moonProb[13][kNumMoonCountKeys+1]
-                        , float winsTrickProb[13]
-                        , float expectedScore[13]
-                        , ScoreType scoreType
-                        , float offset) const
+Card MonteCarlo::Stats::BestPlay(const CardHand& choices) const
 {
+  float moonProb[kCardsPerHand][kNumMoonCountKeys];
+  float winsTrickProb[kCardsPerHand];
   const float kScale = 1.0 / mTotalAlternates;
   for (unsigned i=0; i<choices.Size(); ++i) {
-    int notMoonCount = mTotalAlternates - (moonCounts[i][0] + moonCounts[i][1]);
-    moonProb[i][kCurrentShotTheMoon] = moonCounts[i][kCurrentShotTheMoon] * kScale;
-    moonProb[i][kOtherShotTheMoon] = moonCounts[i][kOtherShotTheMoon] * kScale;
-    moonProb[i][2] = notMoonCount * kScale;
-
-    winsTrickProb[i] = trickWins[i] * kScale;
+    moonProb[i][kCurrentShotTheMoon] = mTotalMoonCounts[i][kCurrentShotTheMoon] * kScale;
+    moonProb[i][kOtherShotTheMoon] = mTotalMoonCounts[i][kOtherShotTheMoon] * kScale;
+    winsTrickProb[i] = mTotalTrickWins[i] * kScale;
   }
 
-  _offsetStats.Accum(offset);
-
-  assert(scoreType>=kBoringScore);
-  assert(scoreType<kNumScoreTypes);
-  const float* kScoreOffset = kScoreTypeOffsets[scoreType];
-
-  const float kEpsilon = 0.001;  // a little fudge factor for inexact floating point.
   unsigned bestChoice = 0;
   float bestScore = 1e10;
   for (unsigned i=0; i<choices.Size(); ++i) {
-    float score = scores[i] * kScale;
+    float expectedPoints = mTotalPoints[i]*kScale;
 
-    _rawScoreStats.Accum(score);
+    assert(expectedPoints >= 0.0);
+    assert(expectedPoints <= 26.0);
+    _expectedPoints.Accum(expectedPoints);
 
-    if (scoreType == kStandardScore)
-      score -= 6.5;
+    float score = expectedPoints - 6.5;  // subtract out the mean score for the typical non-moon outcome
+    score -= 39.0 * moonProb[i][kCurrentShotTheMoon];
+    score += 13.0 * moonProb[i][kOtherShotTheMoon];
 
-    for (unsigned j=0; j<kNumMoonCountKeys; ++j) {
-      score += kScoreOffset[j] * moonProb[i][j];
-    }
-
-    if (scoreType == kBoringScore) {
-      _boringScoreStats.Accum(score);
-      assert(score >= 0.0   - kEpsilon);
-      assert(score <= 26.0  + kEpsilon);
-      float normScore = (score - offset) / 26.0;
-      _normScoreStats.Accum(normScore);
-      expectedScore[i] = normScore;
-    } else {
-      assert(scoreType == kStandardScore);
-      _standardScoreStats.Accum(score);
-      assert(score >= -19.5 - kEpsilon);
-      assert(score <=  18.5 + kEpsilon);
-      expectedScore[i] = score;
-    }
+    _standardScoreStats.Accum(score);
+    assert(score >= -19.5);
+    assert(score <=  18.5);
 
     if (bestScore > score) {
       bestScore = score;
@@ -259,17 +241,49 @@ Card MonteCarlo::Stats::ComputeProbabilities(const CardHand& choices
   return choices.NthCard(bestChoice);
 }
 
+void MonteCarlo::Stats::ComputeTargetValues(const CardHand& choices
+                        , float moonProb[13][kNumMoonCountKeys+1]
+                        , float winsTrickProb[13]
+                        , float expectedDelta[13]
+                        , unsigned pointsAlreadyTaken) const
+{
+  const float kScale = 1.0 / mTotalAlternates;
+  for (unsigned i=0; i<choices.Size(); ++i) {
+    int notMoonCount = mTotalAlternates - (mTotalMoonCounts[i][kCurrentShotTheMoon] + mTotalMoonCounts[i][kOtherShotTheMoon]);
+    moonProb[i][kCurrentShotTheMoon] = mTotalMoonCounts[i][kCurrentShotTheMoon] * kScale;
+    moonProb[i][kOtherShotTheMoon] = mTotalMoonCounts[i][kOtherShotTheMoon] * kScale;
+    moonProb[i][2] = notMoonCount * kScale;
+    winsTrickProb[i] = mTotalTrickWins[i] * kScale;
+  }
+
+  assert(pointsAlreadyTaken < kMaxPointsPerHand);
+    // we will never see the max here, as we don't process games states with all point cards already played
+
+  const float kPointsAlreadyTaken = float(pointsAlreadyTaken);
+
+  for (unsigned i=0; i<choices.Size(); ++i) {
+    float expectedPoints = mTotalPoints[i]*kScale;
+
+    assert(expectedPoints >= kPointsAlreadyTaken);
+    assert(expectedPoints <= float(kMaxPointsPerHand));  // we can (rarely) see all points taken here, when a player can force shooting the moon
+
+    const float kExpectedDelta = expectedPoints - kPointsAlreadyTaken;
+    expectedDelta[i] = kExpectedDelta;
+    _expectedDelta.Accum(kExpectedDelta);
+  }
+}
+
 void MonteCarlo::Stats::operator+=(const MonteCarlo::Stats& other)
 {
   assert(mNumLegalPlays == other.mNumLegalPlays);
   mTotalAlternates += other.mTotalAlternates;
   for (unsigned i=0; i<mNumLegalPlays; ++i)
   {
-    scores[i] += other.scores[i];
-    trickWins[i] += other.trickWins[i];
+    mTotalPoints[i] += other.mTotalPoints[i];
+    mTotalTrickWins[i] += other.mTotalTrickWins[i];
 
-    for (unsigned j=0; j<4; ++j) {
-      moonCounts[i][j] += other.moonCounts[i][j];
+    for (unsigned j=0; j<kNumMoonCountKeys; ++j) {
+      mTotalMoonCounts[i][j] += other.mTotalMoonCounts[i][j];
     }
   }
 }

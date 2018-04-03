@@ -28,15 +28,16 @@ public:
 
   void Set(unsigned pointTricks[4], unsigned score[4]);
 
-  void updateMoonStats(unsigned currentPlayer, int iChoice, int moonCounts[13][kNumMoonCountKeys]) const;
+  void updateMoonStats(unsigned currentPlayer, int iChoice, unsigned moonCounts[13][kNumMoonCountKeys]) const;
     // Moon counts is an aggregation across many outcomes for many legal play choices.
     // These method updates moonCounts for the this one outcome
 
-  float boringScore(unsigned currentPlayer) const;
-    // Return the score for the boring game of hearts, i.e. one without shooting the moon.
-    // This score is in the range of 0.0 to 26.0.
+  unsigned PointsTaken(unsigned player) const;
+    // Return the number of points taken by the player.
+    // This points is in the range of 0 to 26u.
+    // This does take into account shooting the moon. A return value of 26u here implies that player shot the moon.
 
-  float standardScore(unsigned currentPlayer) const;
+  float ZeroMeanStandardScore(unsigned currentPlayer) const;
     // Return the standard score, taking into account shooting the moon, but with zero mean.
     // This score is in the range of -19.5 to 18.5.
 

@@ -168,7 +168,6 @@ def model_fn(features, labels, mode, params={}):
     if SCORE:
       with tf.variable_scope('expected_score_loss'):
           y_expected_score = labels[EXPECTED_SCORE]
-          y_expected_score = tf.divide(y_expected_score, 26.0)  # TODO: Remove next time we regenerate data
           expected_score_diff = tf.subtract(y_expected_score, expectedScoreLogits)
           expected_score_diff2 = tf.square(expected_score_diff)
           expected_score_squared_sum = tf.reduce_sum(expected_score_diff2)

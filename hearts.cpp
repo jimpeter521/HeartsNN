@@ -77,7 +77,7 @@ float run_iterations_task(int kIterationsPerTask, StrategyPtr opponent)
 
     GameState state;
     GameOutcome outcome = state.PlayGame(players, rng);
-    totalChampScore += outcome.standardScore(p);
+    totalChampScore += outcome.ZeroMeanStandardScore(p);
   }
 
   return totalChampScore;

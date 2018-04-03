@@ -15,11 +15,11 @@ def npBatchShape(shape):
 
 def save_to_memmap(data, path, p=None):
     """ Save a numpy array `data` as a memmap file to the given `path`. Optionally permute the data first."""
-    print('Writing:', path)
-    fp = np.memmap(path, dtype='float32', mode='w+', shape=data.shape)
     if p is not None:
-        assert len(p) == len(data)
+        assert len(p) <= len(data)
         data = data[p]
+    print('Writing {} with shape {}'.format(path, data.shape))
+    fp = np.memmap(path, dtype='float32', mode='w+', shape=data.shape)
     np.copyto(fp, data)
     del fp
 
@@ -41,7 +41,7 @@ def as_numpy(group):
 
     return mainData, scoresData, winTrickProbs, moonProbData
 
-def save_group(group, datasetDir):
+def save_group(group, datasetDir, lim=None):
 
     mainData, scoresData, winTrickProbs, moonProbData = as_numpy(group)
 
@@ -52,6 +52,9 @@ def save_group(group, datasetDir):
     # in the dataset always use the same order.
     nsamples = len(mainData)
     p = np.random.permutation(nsamples)
+
+    if lim is not None and lim < nsamples:
+        p = p[0:lim]
 
     save_to_memmap(mainData, f'{datasetDir}/main_data.np.mmap', p)
     save_to_memmap(scoresData, f'{datasetDir}/score_data.np.mmap', p)
