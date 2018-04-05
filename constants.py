@@ -79,3 +79,9 @@ MOON_PROB = 'moon_prob'
 
 TRAINING = 'training'
 VALIDATION = 'validation'
+
+# When we use score predictions, the range should be 0..26.0
+# But for least squares regression, we use a range of 0..2.0
+# This currently requires that we scale the data at specific points in the pipeline
+PREDICTION_SCORE_MAX = 26.0
+MODEL_SCORE_MAX = 2.0
