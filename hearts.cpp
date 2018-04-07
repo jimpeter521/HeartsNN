@@ -13,6 +13,15 @@
 #include <tensorflow/cc/saved_model/tag_constants.h>
 #include <sys/stat.h>
 
+#include <stdlib.h>
+#include <signal.h>
+
+volatile sig_atomic_t gRunning = 1;
+void trapCtrlC(int sig){
+  gRunning = 0;
+  std::cout << "Be patient, will stop soon..." << std::endl;
+}
+
 const int kConcurrency = 2 + (std::thread::hardware_concurrency()/2);
 const int kIterationsPerTask = 100;
 const int kBatchSize = kConcurrency*kIterationsPerTask;
@@ -56,7 +65,7 @@ StrategyPtr getIntuition() {
 float run_iterations_task(int kIterationsPerTask, StrategyPtr opponent)
 {
   const RandomGenerator& rng = RandomGenerator::ThreadSpecific();
-  const uint32_t kNumAlternates = gModelPath ? 100 : 5000;
+  const uint32_t kNumAlternates = gModelPath ? 40 : 5000;
 
   // The `player` uses monte carlo and will generate data
   // AnnotatorPtr annotator(new WriteDataAnnotator());
@@ -136,9 +145,11 @@ int main(int argc, char** argv)
     assert(err != 0);
   }
 
+  signal(SIGINT, trapCtrlC);
+
   const double startTime = now();
   int doneSoFar = 0;
-  while (remainingIterations > 0)
+  while (gRunning && remainingIterations > 0)
   {
     int iterationsThisBatch = remainingIterations > kBatchSize ? kBatchSize : remainingIterations;
     assert((iterationsThisBatch % kConcurrency) == 0);
