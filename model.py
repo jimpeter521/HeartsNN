@@ -47,7 +47,9 @@ def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraini
     conv = input
     with tf.variable_scope(name):
 #         print(f'{name} input shape:', input.shape)
-        conv = tf.layers.conv2d(conv, filters=filters, kernel_size=kernel_size, strides=strides, padding='valid', activation=activation)
+        conv = tf.layers.conv2d(conv, filters=filters, kernel_size=kernel_size, strides=strides, padding='valid')
+        batch_normed = tf.keras.layers.BatchNormalization()(conv, training=isTraining)
+        conv = tf.keras.activations.relu(batch_normed)
         conv = tf.transpose(conv, [0,1,3,2])
 #         print(f'{name} output shape:', conv.shape)
 
@@ -216,7 +218,10 @@ def model_fn(features, labels, mode, params={}):
     scalars['total_loss'] = total_loss
 
     optimizer = tf.train.AdamOptimizer()
-    train_op = optimizer.minimize(loss=total_loss, global_step=tf.train.get_global_step())
+
+    extra_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+    with tf.control_dependencies(extra_ops):
+      train_op = optimizer.minimize(loss=total_loss, global_step=tf.train.get_global_step())
 
     model_dir_path = params['model_dir_path']
     assert model_dir_path is not None

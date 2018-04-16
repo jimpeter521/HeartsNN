@@ -65,7 +65,7 @@ StrategyPtr getIntuition() {
 float run_iterations_task(int kIterationsPerTask, StrategyPtr opponent)
 {
   const RandomGenerator& rng = RandomGenerator::ThreadSpecific();
-  const uint32_t kNumAlternates = gModelPath ? 40 : 5000;
+  const uint32_t kNumAlternates = gModelPath ? 100 : 5000;
 
   // The `player` uses monte carlo and will generate data
   // AnnotatorPtr annotator(new WriteDataAnnotator());
