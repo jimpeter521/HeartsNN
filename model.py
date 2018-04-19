@@ -18,11 +18,12 @@ def extract_distribution(mainData):
         distribution = tf.reshape(mainData, [-1, NUM_SUITS, NUM_RANKS, INPUT_FEATURES], name='distribution')
     return distribution
 
-def hidden_layers(input, depth, width, activation):
+def hidden_layers(input, depth, width, activation, isTraining):
     output = input
     for i in range(depth):
         with tf.variable_scope('hidden_{}'.format(i)):
             output = tf.layers.dense(output, width, activation=activation)
+            output = tf.keras.layers.BatchNormalization()(output, training=isTraining)
     return output
 
 def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraining=True):
@@ -47,9 +48,8 @@ def one_conv_layer(input, ranks=2, stride=1, activation=swish, name='', isTraini
     conv = input
     with tf.variable_scope(name):
 #         print(f'{name} input shape:', input.shape)
-        conv = tf.layers.conv2d(conv, filters=filters, kernel_size=kernel_size, strides=strides, padding='valid')
-        batch_normed = tf.keras.layers.BatchNormalization()(conv, training=isTraining)
-        conv = tf.keras.activations.relu(batch_normed)
+        conv = tf.layers.conv2d(conv, filters=filters, kernel_size=kernel_size, strides=strides, padding='valid', activation=activation)
+        conv = tf.keras.layers.BatchNormalization()(conv, training=isTraining)
         conv = tf.transpose(conv, [0,1,3,2])
 #         print(f'{name} output shape:', conv.shape)
 
@@ -114,8 +114,8 @@ def model_fn(features, labels, mode, params={}):
 
     conv_layers = convolution_layers(mainData, activation, isTraining)
 
-    layer = hidden_layers(conv_layers, hidden_depth, hidden_width, activation)
-    last_common_layer = tf.layers.dense(layer, hidden_width)
+    last_common_layer = hidden_layers(conv_layers, hidden_depth, hidden_width, activation, isTraining)
+    last_common_layer = tf.layers.dense(last_common_layer, hidden_width, name="last_common")
 
     outputs_dict = {}
 
@@ -127,10 +127,24 @@ def model_fn(features, labels, mode, params={}):
     # We should instead compute our own sum and divide by the number of legal plays
     num_legal = tf.reduce_sum(legalPlays, name='num_legal')
 
+    assert not SCORE
     if SCORE:
       with tf.variable_scope(EXPECTED_SCORE):
-          expectedScoreLogits = tf.layers.dense(last_common_layer, CARDS_IN_DECK, activation=tf.nn.relu, name='logits')
+          expectedScoreLogits = tf.layers.dense(last_common_layer, CARDS_IN_DECK, activation=tf.nn.relu)
           expectedScoreLogits = tf.multiply(expectedScoreLogits, legalPlays, name=EXPECTED_SCORE)
+          logits0 = expectedScoreLogits
+          expectedScoreLogits = tf.keras.layers.BatchNormalization()(expectedScoreLogits, training=isTraining)
+          concatenated = tf.concat([expectedScoreLogits, last_common_layer], axis=-1)
+          expectedScoreLogits = tf.layers.dense(concatenated, CARDS_IN_DECK, activation=tf.nn.relu)
+          expectedScoreLogits = tf.multiply(expectedScoreLogits, legalPlays, name=EXPECTED_SCORE)
+          expectedScoreLogits = tf.add(expectedScoreLogits, logits0)
+          logits1 = expectedScoreLogits
+          expectedScoreLogits = tf.keras.layers.BatchNormalization()(expectedScoreLogits, training=isTraining)
+          concatenated = tf.concat([expectedScoreLogits, last_common_layer], axis=-1)
+          expectedScoreLogits = tf.layers.dense(concatenated, CARDS_IN_DECK, activation=tf.nn.relu)
+          expectedScoreLogits = tf.multiply(expectedScoreLogits, legalPlays, name=EXPECTED_SCORE)
+          expectedScoreLogits = tf.add(expectedScoreLogits, logits1)
+          expectedScoreLogits = tf.keras.layers.Activation('relu')(expectedScoreLogits)
           tf.summary.histogram("expectedScoreLogits", expectedScoreLogits)
       outputs_dict[EXPECTED_SCORE] = expectedScoreLogits
 
@@ -151,7 +165,7 @@ def model_fn(features, labels, mode, params={}):
       outputs_dict[MOON_PROB] = moon_probs
 
     all_outputs = tf.estimator.export.PredictOutput(outputs_dict)
-    default_out = all_outputs if not SCORE else tf.estimator.export.PredictOutput({EXPECTED_SCORE: expectedScoreLogits})
+    default_out = all_outputs
     export_outputs = {
       tf.saved_model.signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY: default_out,
       'all_outputs': all_outputs,
@@ -215,7 +229,7 @@ def model_fn(features, labels, mode, params={}):
         total_loss = tf.add(total_loss, 0.0, name='total_loss')
         tf.summary.scalar('total_loss', total_loss)
 
-    scalars['total_loss'] = total_loss
+    # scalars['total_loss'] = total_loss
 
     optimizer = tf.train.AdamOptimizer()
 
