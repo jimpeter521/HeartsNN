@@ -31,7 +31,8 @@ DnnModelIntuition::DnnModelIntuition(const std::string& modelPath, bool pooled)
         mPredictor = new SynchronousPredictor(mModel);
 }
 
-Card DnnModelIntuition::choosePlay(const KnowableState& state, const RandomGenerator& rng) const
+Card DnnModelIntuition::predictOutcomes(
+    const KnowableState& state, const RandomGenerator& rng, float playExpectedValue[13]) const
 {
     FloatMatrix matrix = state.AsFloatMatrix();
     Tensor mainData(DT_FLOAT, TensorShape({1, kCardsPerDeck, KnowableState::kNumFeaturesPerCard}));
@@ -44,6 +45,11 @@ Card DnnModelIntuition::choosePlay(const KnowableState& state, const RandomGener
     std::vector<tensorflow::Tensor> outputs;
     mPredictor->Predict(mainData, outputs);
 
-    float playExpectedValue[13];
     return state.ParsePrediction(outputs, playExpectedValue);
+}
+
+Card DnnModelIntuition::choosePlay(const KnowableState& state, const RandomGenerator& rng) const
+{
+    float playExpectedValue[13];
+    return predictOutcomes(state, rng, playExpectedValue);
 }

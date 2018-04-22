@@ -1,14 +1,17 @@
 #pragma once
 
-#include "lib/Strategy.h"
 #include "lib/CardArray.h"
+#include "lib/Strategy.h"
 
 class RandomStrategy : public Strategy
 {
 public:
-  virtual ~RandomStrategy();
+    virtual ~RandomStrategy();
 
-  RandomStrategy();
+    RandomStrategy();
 
-  virtual Card choosePlay(const KnowableState& state, const RandomGenerator& rng) const;
+    virtual Card choosePlay(const KnowableState& state, const RandomGenerator& rng) const;
+
+    virtual Card predictOutcomes(
+        const KnowableState& state, const RandomGenerator& rng, float playExpectedValue[13]) const;
 };

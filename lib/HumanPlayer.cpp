@@ -6,8 +6,9 @@
 #include <ctype.h>
 
 HumanPlayer::~HumanPlayer() {}
-HumanPlayer::HumanPlayer(const AnnotatorPtr& annotator)
-    : Strategy(annotator)
+HumanPlayer::HumanPlayer(StrategyPtr opponent)
+    : Strategy(AnnotatorPtr(0))
+    , mOpponent(opponent)
 {}
 
 Card getCardInput(const KnowableState& state)
@@ -74,6 +75,19 @@ Card getCardInput(const KnowableState& state)
     return choice;
 }
 
+Card HumanPlayer::predictOutcomes(
+    const KnowableState& state, const RandomGenerator& rng, float playExpectedValue[13]) const
+{
+    if (mOpponent)
+        return mOpponent->predictOutcomes(state, rng, playExpectedValue);
+    else
+    {
+        for (int i = 0; i < 13; ++i)
+            playExpectedValue[i] = 0;
+        return state.LegalPlays().FirstCard();
+    }
+}
+
 Card HumanPlayer::choosePlay(const KnowableState& state, const RandomGenerator& rng) const
 {
     printf("Play %d\n", state.PlayNumber());
@@ -82,6 +96,10 @@ Card HumanPlayer::choosePlay(const KnowableState& state, const RandomGenerator& 
 
     if (state.PointsPlayed() > 0)
     {
+        if (!state.UnplayedCards().HasCard(TheQueen()))
+        {
+            printf("Queen Played\n");
+        }
         if (state.PointsSplit())
         {
             printf("Points split\n");
@@ -97,12 +115,17 @@ Card HumanPlayer::choosePlay(const KnowableState& state, const RandomGenerator& 
         }
     }
 
+    CardHand hand = state.CurrentPlayersHand();
+    printf("Your hand:\n");
+    hand.Print();
+
     if (playInTrick == 0)
     {
         printf("You are leading the trick...\n");
     }
     else
     {
+        printf("The trick so far:\n");
         for (int i = 0; i < playInTrick; ++i)
         {
             Card c = state.GetTrickPlay(i);
@@ -111,8 +134,16 @@ Card HumanPlayer::choosePlay(const KnowableState& state, const RandomGenerator& 
         printf("\n");
     }
 
-    CardHand hand = state.CurrentPlayersHand();
-    hand.Print();
+    if (mOpponent)
+    {
+        printf("Your possible plays:\n");
+        CardHand legal = state.LegalPlays();
+        float playExpectedValue[13];
+        Card best = mOpponent->predictOutcomes(state, rng, playExpectedValue);
+        for (int i = 0; i < legal.Size(); ++i)
+            printf("%s =%.1f ", NameOf(legal.NthCard(i)), playExpectedValue[i]);
+        printf("\n");
+    }
 
     return getCardInput(state);
 }

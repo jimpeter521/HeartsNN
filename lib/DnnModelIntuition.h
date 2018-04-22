@@ -19,6 +19,9 @@ public:
 
     virtual Card choosePlay(const KnowableState& state, const RandomGenerator& rng) const;
 
+    virtual Card predictOutcomes(
+        const KnowableState& state, const RandomGenerator& rng, float playExpectedValue[13]) const;
+
 private:
     tensorflow::SavedModelBundle mModel;
     Predictor* mPredictor;
