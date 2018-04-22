@@ -11,6 +11,7 @@ add_library(lib STATIC
     GameOutcome.cpp
     GameState.cpp
     HeartsState.cpp
+    HumanPlayer.cpp
     KnowableState.cpp
     MonteCarlo.cpp
     NoVoidsAnalyzer.cpp
