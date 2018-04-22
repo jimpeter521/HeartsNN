@@ -208,8 +208,8 @@ if __name__ == '__main__':
     print('num_batches, threshold:', num_batches, threshold)
 
     evals = {}
-    for hidden_depth in [2]:
-        for hidden_width in [200]:
+    for hidden_depth in [1]:
+        for hidden_width in [192]:
             for activation in ['relu']:
                 params = {
                     'hidden_depth': hidden_depth,
