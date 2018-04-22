@@ -21,6 +21,7 @@ add_library(lib STATIC
     RandomStrategy.cpp
     Semaphore.cpp
     Strategy.cpp
+    Tournament.cpp
     TwoOpponentsGetSuit.cpp
     VoidBits.cpp
     WriteDataAnnotator.cpp

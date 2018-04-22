@@ -1,12 +1,10 @@
+#include "lib/Tournament.h"
 #include "lib/GameState.h"
 #include "lib/MonteCarlo.h"
 
 #include "lib/math.h"
 #include "lib/random.h"
 #include "lib/timer.h"
-
-#include <tensorflow/cc/saved_model/loader.h>
-#include <tensorflow/cc/saved_model/tag_constants.h>
 
 #include <algorithm>
 #include <getopt.h>
@@ -18,9 +16,6 @@ enum PlayerRole
     kOpponent
 };
 
-int gNumMatches = 0;
-uint128_t* gDeals = 0;
-
 const char* gChampionStr = "random#100";
 const char* gOpponentStr = "random";
 
@@ -29,8 +24,6 @@ StrategyPtr gChampion;
 
 bool gSaveMoonDeals = true;
 bool gQuiet = false;
-
-RandomGenerator rng;
 
 const char* PlayerName(PlayerRole role) { return role == kChampion ? "Champion" : "Opponent"; }
 
@@ -48,6 +41,9 @@ void usage()
         printf("%s\n", lines[i]);
     exit(0);
 }
+
+int gNumMatches;
+uint128_t* gDeals;
 
 const void randomDeals(int n)
 {
@@ -145,163 +141,6 @@ void parseArgs(int argc, char** argv)
     }
 }
 
-typedef StrategyPtr Player;
-typedef StrategyPtr Table[4];
-
-// This Scores struct is useful for analyzing the results of one match.
-// It accumulates both total scores for each player strategy, but also
-// the scores for each position at the table across the six games in the match.
-struct Scores
-{
-    float mPlayer[2];
-    float mPosition[4];
-    float mCross[2][4];
-
-    Scores()
-    {
-        std::fill(mPlayer, mPlayer + 2, 0.0);
-        std::fill(mPosition, mPosition + 4, 0.0);
-        std::fill(&mCross[0][0], &mCross[2][0], 0.0);
-    }
-
-    void Accumulate(StrategyPtr players[4], const GameOutcome& outcome)
-    {
-        for (int j = 0; j < 4; ++j)
-        {
-            StrategyPtr player = players[j];
-            int playerIndex = player == gChampion ? 0 : 1;
-            mPlayer[playerIndex] += outcome.ZeroMeanStandardScore(j);
-            mPosition[j] += outcome.ZeroMeanStandardScore(j);
-            mCross[playerIndex][j] += outcome.ZeroMeanStandardScore(j);
-        }
-    }
-
-    void Summarize() const
-    {
-        const char* name[2] = {"c", "o"};
-        printf("\n");
-        for (int i = 0; i < 2; ++i)
-        {
-            printf("%s ", name[i]);
-            for (int j = 0; j < 4; ++j)
-            {
-                printf("%5.1f ", mCross[i][j] / 3.0);
-            }
-            printf("| %5.1f\n", mPlayer[i] / 6.0);
-        }
-        for (int j = 0; j < 4; ++j)
-        {
-            printf("%5.1f ", mPosition[j] / 6.0);
-        }
-        printf("\n\n");
-    }
-};
-
-void runOneGame(uint128_t dealIndex, StrategyPtr players[4], Scores& scores, bool& moon)
-{
-    Deal deck(dealIndex);
-    GameState state(deck);
-    GameOutcome outcome = state.PlayGame(players, rng);
-    moon = outcome.shotTheMoon();
-
-    const char* name[2] = {"c", "o"};
-
-    scores.Accumulate(players, outcome);
-
-    if (!gQuiet)
-    {
-        for (int i = 0; i < 4; ++i)
-        {
-            StrategyPtr player = players[i];
-            int playerIndex = player == gChampion ? 0 : 1;
-            printf("%s=%5.1f ", name[playerIndex], outcome.ZeroMeanStandardScore(i));
-        }
-        if (moon)
-            printf("  Shot the moon!\n");
-        else
-            printf("\n");
-    }
-}
-
-void runOneMatch(StrategyPtr champion, StrategyPtr opponent, const uint128_t dealIndex, float playerScores[2])
-{
-
-    // A match is six games with the same deal of cards to the four positions (N, E, S, W)
-    // The two player strategies each occupy two of the table positions.
-    // There are six unique arrangements of the two player strategies.
-    // We'll rollup all of the game scores into one score for each strategy.
-    Table match[6] = {
-        {champion, champion, opponent, opponent},
-        {champion, opponent, champion, opponent},
-        {champion, opponent, opponent, champion},
-        {opponent, opponent, champion, champion},
-        {opponent, champion, opponent, champion},
-        {opponent, champion, champion, opponent},
-    };
-
-    Scores matchScores;
-
-    int shotMoon = 0;
-
-    Deal deck(dealIndex);
-    if (!gQuiet)
-    {
-        std::string asHex = asHexString(dealIndex);
-        printf("%s\n", asHex.c_str());
-        deck.printDeal();
-    }
-
-    for (int i = 0; i < 6; ++i)
-    {
-        bool moon;
-        runOneGame(dealIndex, match[i], matchScores, moon);
-        if (moon)
-            ++shotMoon;
-    }
-
-    if (!gQuiet)
-    {
-        matchScores.Summarize();
-    }
-
-    for (int p = 0; p < 2; ++p)
-        playerScores[p] += matchScores.mPlayer[p];
-
-    if (gSaveMoonDeals && shotMoon > 1)
-    {
-        std::string hex = asHexString(dealIndex);
-        FILE* f = fopen("moonhands.txt", "a");
-        fprintf(f, "%s\n", hex.c_str());
-        fclose(f);
-    }
-}
-
-float runOneTournament(StrategyPtr champion, StrategyPtr opponent)
-{
-    float playerScores[2] = {0};
-
-    for (int i = 0; i < gNumMatches; ++i)
-    {
-        runOneMatch(champion, opponent, gDeals[i], playerScores);
-    }
-
-    if (!gQuiet)
-    {
-        printf("Champion: %4.2f\n", playerScores[0] / (gNumMatches * 6.0));
-        printf("Opponent: %4.2f\n", playerScores[1] / (gNumMatches * 6.0));
-        if (playerScores[0] <= playerScores[1])
-        {
-            printf("Champion wins\n");
-        }
-        else
-        {
-            printf("Oppponent wins\n");
-        }
-    }
-
-    return playerScores[0] / (gNumMatches * 6.0); // the champ's score
-}
-
 #if 1
 int main(int argc, char** argv)
 {
@@ -310,7 +149,9 @@ int main(int argc, char** argv)
     gChampion = makePlayer(gChampionStr);
     gOpponent = makePlayer(gOpponentStr);
 
-    runOneTournament(gChampion, gOpponent);
+    Tournament tournament(gChampion, gOpponent, gQuiet, gSaveMoonDeals);
+
+    tournament.runOneTournament(gNumMatches, gDeals);
 
     return 0;
 }
