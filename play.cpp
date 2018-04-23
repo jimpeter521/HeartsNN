@@ -1,6 +1,7 @@
 #include "lib/Deal.h"
 #include "lib/GameState.h"
 #include "lib/HumanPlayer.h"
+#include "lib/Tournament.h"
 #include "lib/random.h"
 
 #include <stdlib.h>
@@ -21,9 +22,11 @@ int main(int argc, char** argv)
     float totalScores[4] = {0};
     while (true)
     {
+        printf("\n\nNew game...\n");
         uint128_t N = Deal::RandomDealIndex();
         GameState state(N);
         GameOutcome outcome = state.PlayGame(players, rng);
+        float humanScore = outcome.ZeroMeanStandardScore(0);
 
         printf("This hand:\n");
         for (int p = 0; p < 4; ++p)
@@ -37,12 +40,25 @@ int main(int argc, char** argv)
         Deal deal(N);
         deal.printDeal();
 
-        printf("Totals so far:\n");
+        {
+            StrategyPtr _players[4] = {opponent, opponent, opponent, opponent};
+            GameState state(deal);
+            GameOutcome outcome = state.PlayGame(_players, rng);
+            float modelScore = outcome.ZeroMeanStandardScore(0);
+            printf("Your score: %.1f\n", humanScore);
+            printf("Model score: %.1f\n", modelScore);
+            if (humanScore < modelScore)
+            {
+                printf("Well done!\n");
+            }
+        }
+
+        printf("\nTotals so far:\n");
         for (int p = 0; p < 4; ++p)
         {
             printf("%.1f ", totalScores[p]);
         }
-        printf("\n\nNew game...\n");
+        printf("\n");
     }
 
     return 0;

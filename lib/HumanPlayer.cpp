@@ -134,7 +134,7 @@ Card HumanPlayer::choosePlay(const KnowableState& state, const RandomGenerator& 
         printf("\n");
     }
 
-    if (mOpponent)
+    if (false && mOpponent)
     {
         printf("Your possible plays:\n");
         CardHand legal = state.LegalPlays();
@@ -142,6 +142,14 @@ Card HumanPlayer::choosePlay(const KnowableState& state, const RandomGenerator& 
         Card best = mOpponent->predictOutcomes(state, rng, playExpectedValue);
         for (int i = 0; i < legal.Size(); ++i)
             printf("%s =%.1f ", NameOf(legal.NthCard(i)), playExpectedValue[i]);
+        printf("\n");
+    }
+    else
+    {
+        printf("Your possible plays:\n");
+        CardHand legal = state.LegalPlays();
+        for (int i = 0; i < legal.Size(); ++i)
+            printf("%s ", NameOf(legal.NthCard(i)));
         printf("\n");
     }
 
