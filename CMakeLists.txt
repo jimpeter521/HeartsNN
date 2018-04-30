@@ -11,6 +11,8 @@ project (HeartsNN)
 add_definitions(-march=native)
 include_directories(${PROJECT_SOURCE_DIR})
 
+add_subdirectory(helloworld)
+
 hunter_add_package(dlib)
 find_package(dlib CONFIG REQUIRED)
 
