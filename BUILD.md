@@ -1,0 +1,144 @@
+# Build Instructions
+
+## Requirements
+
+I've done all of my development on a Mac. The instructions below are mac-specific
+because they refer to the use of [Homebrew](https://brew.sh/), but it isn't
+difficult to translate these instructions to work for Linux. For now, I leave
+that as an exercise for the reader.
+
+## Installing Tensorflow for Mac OS
+
+You can install by following the instructions Google provides here:
+
+1. https://www.tensorflow.org/install/install_mac
+2. https://www.tensorflow.org/install/install_sources
+
+The first page assumes you're installing for python only, but you will need to
+install from sources, so both pages are required.
+
+The steps below are the actual concrete steps I followed to install from sources.
+It's possible (likely?) that I am missing some dependencies. If you run into any,
+you should assume that I installed the missing dependency with homebrew.
+Please LMK of any dependencies you had to fill in.
+
+### Install Python 3.6
+
+NOTE: You must use python 3.6 if you want to use my python scripts to run training.
+I personally just installed `python3` with homebrew, but you can probably use `anaconda`
+or `virtualenv` instead.
+
+    brew install python3
+
+### Install Python packages required by Tensorflow
+
+Tensorflow requires these packages.
+I don't use `sudo`, because I chown'd /usr/local to be owned by me.
+
+    pip3 install six numpy wheel
+
+### Clone the tensorflow repository
+
+    git clone https://github.com/tensorflow/tensorflow.git
+    cd tensorflow
+
+### Checkout a specific release tag
+
+The current latest release is v1.8.0. You can probably use any release from v1.4.0 on, but you might as well use the latest.
+
+    git co v1.8.0
+
+### Run the Tensorflow configuration script
+
+The configure script is interactive, and I don't show the session here. I used the default
+response for nearly all questions.
+
+    ./configure
+
+I configure for CPU-only (no GPU) since my Mac doesn't have a usable GPU. For the `--config=opt` setting I use these four flags, which work well on recent Macs
+
+    -march=native -mavx -mfma -msse4.2
+
+### You must install Bazel. The homebrew install is good:
+
+    brew install bazel
+
+### Build tensorflow components
+
+Use Bazel to build these tensorflow components. This will take 30 minutes or so.
+
+    bazel build --config=opt //tensorflow/tools/pip_package:build_pip_package //tensorflow:libtensorflow.so //tensorflow:libtensorflow_cc.so
+
+### Build the PIP package
+
+The above built the program `build_pip_package`. Use it to build a pip package in `/tmp`:
+
+    bazel-bin/tensorflow/tools/pip_package/build_pip_package /tmp/tensorflow_pkg
+
+### Locate the pip package and install it
+
+Look in `/tmp` to find name of the exact package that was built. Install it with `pip3 install`:
+
+    pip3 install /tmp/tensorflow_pkg/tensorflow-*-macosx_*_x86_64.whl
+
+### Arrange for all required build artifacts to be installed into `/usr/local/...`
+
+Everything is now built. We need to install headers and libs into `/usr/local/...` so that C++
+applications have access to them. The steps I have below are a bit hacky, but they work:
+
+##### Locate the python3 site packages directory:
+
+    SITE=$(python3 -c "import site; print(site.getsitepackages()[0])")
+
+##### Make a directory in /usr/local/include to receive all of the tensorflow headers:
+
+    mkdir /usr/local/include/tf/
+
+##### Copy headers into `/usr/local/include/tf/...`
+
+    cp -r $SITE/tensorflow/include/* /usr/local/include/tf/
+    rsync -avh tensorflow/cc/ /usr/local/include/tf/tensorflow/cc
+    rsync -avh bazel-genfiles/external/ /usr/local/include/tf/external
+    rsync -avh bazel-genfiles/tensorflow/ /usr/local/include/tf/tensorflow
+    sudo cp bazel-bin/tensorflow/libtensorflow*.so /usr/local/lib/
+
+### Building the HeartsNN components
+
+##### Install the necessay Mac OS build tools
+
+The build assumes you have installed `Xcode`, and uses `make`, `cmake`. The `Xcode` install provides `make`, but you probably need to install `cmake`.
+
+	brew install cmake
+
+##### Build all of the HeartsNN components
+
+You should now finally be able to build all `HeartsNN` components with `make all` (after updating submodules):
+
+	cd HeartsNN
+    git submodule update --init
+	make all
+
+This should build all components. This first build will install and build additional external components such as [DLib](http://dlib.net/) [Google's gRpc](https://grpc.io/), and will take about half an hour.
+
+The final step will be to run several of the components to test the build.
+
+##### Trying out HeartsNN with the application `play`
+
+If there are no errors, you should be able to play a game of hearts using the program `play` built with optimizations on in the `release` directory, as follows:
+
+    release/play savedmodel
+
+`savedmodel` is a built NN model created from several generations of reinforcement learning, and represents
+hundreds of hours of compute time on millions of simulated Hearts games.
+
+The UI of `release/play` is pure console I/O, and the UX is frankly *horrible*. I'm working towards something much nicer, which will allow playing against a running server, so that all of these build steps are unneccessary.
+
+Card choices in the `release/play` app are two letter combinations (case insensitive).
+
+The first letter is the rank, and must be one of `23456789TJQKA`. Note `T` for 10
+
+The second letter is the suit, and must be one of `CDSH`.
+
+The most horrible part of the experience is the game app stops only when it is your turn and you have a choice in what to play. Information that is vital to understanding exactly what happened between your plays is largely lost. It does show you if points have been split, if the queen has been played, and the current number of points per player, which is most, but certainly not all, of the information needed to make an informed choice.
+
+Note that I have not implemented the first part of the game, i.e. choosing 3 cards to pass to an opponent. For now, you must always play the 13 cards dealt to you.
