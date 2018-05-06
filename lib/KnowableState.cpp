@@ -156,10 +156,6 @@ static int CountCardsHigherThan(const CardArray& cards, Card sentinel) {
   return cards.CountCardsWithMask(~mask);
 }
 
-static float normalizeScore(float s) {
-  return s * 26.0;
-}
-
 float oneIfTrue(bool x) {
   return x ? 1.0 : 0.0;
 }
@@ -566,6 +562,10 @@ Card KnowableState::ParsePrediction(const std::vector<tensorflow::Tensor>& outpu
 
   const float kOffset[3] = { -39.0, 13.0, 0.0 };
 
+  constexpr float kPredictionScoreMax = 26.0;
+  constexpr float kModelScoreMax = 2.0;
+  constexpr float kScoreScale = kPredictionScoreMax / kModelScoreMax;
+
   Card bestCard;
   float bestExpected = 1e99;
   CardHand::iterator it(choices);
@@ -575,10 +575,9 @@ Card KnowableState::ParsePrediction(const std::vector<tensorflow::Tensor>& outpu
     float expectedDeltaPrediction = exectedScoreDelta(card);
     _expectedDeltaPredictionUnclipped.Accum(expectedDeltaPrediction);
     const float kMin = 0.0;
-    expectedDeltaPrediction = std::max(kMin, expectedDeltaPrediction);
-    float expectedPointsPrediction = normalizeScore(expectedDeltaPrediction) + kCurrentScore;
-    const float kMax = 26.0;
-    expectedPointsPrediction = std::min(kMax, expectedPointsPrediction);
+    assert(expectedDeltaPrediction >= kMin);
+    float expectedPointsPrediction = (expectedDeltaPrediction * kScoreScale) + kCurrentScore;
+    expectedPointsPrediction = std::min(kPredictionScoreMax, expectedPointsPrediction);
     _expectedPointsPrediction.Accum(expectedPointsPrediction);
 
     float expected_score = expectedPointsPrediction - 6.5;

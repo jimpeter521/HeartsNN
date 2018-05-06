@@ -34,6 +34,10 @@ tournament: release/build.ninja
 	cd release && ninja
 	./release/tournament
 
+dtournament: debug/build.ninja
+	cd debug && ninja
+	./debug/tournament
+
 analyze: release/build.ninja
 	cd release && ninja
 
