@@ -142,10 +142,16 @@ def train_with_params(train_memmaps, eval_memmaps, params, serving_input_receive
 
     losses = {
         'total_loss': 'total_loss/total_loss:0',
-        'win_trick_prob_loss': 'win_trick_prob_loss/win_trick_prob_loss:0',
-        'moon_prob_loss': 'moon_prob_loss/moon_prob_loss:0',
-        'expected_score_loss': 'expected_score_loss/expected_score_loss:0'
         }
+
+    if SCORE:
+        losses['expected_score_loss'] = 'expected_score_loss/expected_score_loss:0'
+
+    if TRICK:
+        losses['win_trick_prob_loss'] = 'win_trick_prob_loss/win_trick_prob_loss:0'
+
+    if MOON:
+        losses['moon_prob_loss'] = 'moon_prob_loss/moon_prob_loss:0'
 
     backsteps = 0
     best_eval_loss = math.inf
