@@ -32,3 +32,5 @@ add_library(lib STATIC
     random.cpp
     timer.cpp
 )
+
+target_link_libraries(lib PUBLIC dlib::dlib)

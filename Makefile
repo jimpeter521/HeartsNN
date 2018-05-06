@@ -1,45 +1,54 @@
 .PHONY: hearts deal build test disttest analyze all analyze1 analyze2
 
+POLLY_ROOT=$(realpath ./polly)
+TOOLCHAIN=$(POLLY_ROOT)/clang-cxx14.cmake
+
 debug:
 	mkdir -p debug
 
-debug/build.ninja: debug
-	cd debug && cmake -G Ninja -DCMAKE_BUILD_TYPE=Debug ..
+debug/Makefile: debug
+	cd debug && cmake -DCMAKE_TOOLCHAIN_FILE=$(TOOLCHAIN) -DCMAKE_BUILD_TYPE=Debug ..
 
 release:
 	mkdir -p release
 
-release/build.ninja: release
-	cd release && cmake -G Ninja -DCMAKE_BUILD_TYPE=Release ..
+release/Makefile: release
+	cd release && cmake -DCMAKE_TOOLCHAIN_FILE=$(TOOLCHAIN) -DCMAKE_BUILD_TYPE=Release ..
 
 xcode:
 	mkdir -p xcode
 
+debug-all: debug/Makefile
+	make -C debug -j8 all
+
+release-all: release/Makefile
+	make -C release -j8 all
+
 xcode/HeartsNN.xcodeproj: xcode
 	cd xcode && cmake -G Xcode ..
 
-hearts: debug/build.ninja
-	cd debug && ninja hearts
+hearts: debug/Makefile
+	make -C debug -j8 hearts
 	./debug/hearts
 
-opt: release/build.ninja
-	cd release && ninja hearts
+opt: release/Makefile
+	make -C release -j8 hearts
 	./release/hearts
 
-deal: debug/build.ninja
-	cd debug && ninja deal
+deal: debug/Makefile
+	make -C debug -j8 deal
 	./debug/deal
 
-tournament: release/build.ninja
-	cd release && ninja tournament
+tournament: release/Makefile
+	make -C release -j8 tournament
 	./release/tournament
 
-dtournament: debug/build.ninja
-	cd debug && ninja tournament
+dtournament: debug/Makefile
+	make -C debug -j8 tournament
 	./debug/tournament
 
-analyze: release/build.ninja
-	cd release && ninja analyze
+analyze: release/Makefile
+	make -C release -j8 analyze
 
 analyze1: analyze
 	./release/analyze -d 2006d6c0864151ba79c30127   # slam dunk shoot moon current player
@@ -53,16 +62,17 @@ analyze3: analyze
 analyze4: analyze
 	./release/analyze -d a5a9d06f5c340ca6ab864fb6 # Second player shoots the moon with strong, but I think stoppable hand
 
-disttest: debug/build.ninja
-	cd debug && ninja disttest && ./disttest
+disttest: debug/Makefile
+	make -C debug -j8 disttest
+	./debug/disttest
 
-validate: debug/build.ninja
-	cd debug && ninja validate
+validate: debug/Makefile
+	make -C debug -j8 validate
 
 validate1: validate
 	./debug/validate 2006d6c0864151ba79c30127
 
-play: release/build.ninja
-	cd release && ninja play
+play: release/Makefile
+	make -C release -j8 play
 
-all: opt tournament analyze1 disttest deal validate1
+all: debug-all release-all opt tournament analyze1 disttest deal validate1
