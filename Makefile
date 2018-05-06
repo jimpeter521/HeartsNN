@@ -19,27 +19,27 @@ xcode/HeartsNN.xcodeproj: xcode
 	cd xcode && cmake -G Xcode ..
 
 hearts: debug/build.ninja
-	cd debug && ninja
+	cd debug && ninja hearts
 	./debug/hearts
 
 opt: release/build.ninja
-	cd release && ninja
+	cd release && ninja hearts
 	./release/hearts
 
 deal: debug/build.ninja
-	cd debug && ninja
+	cd debug && ninja deal
 	./debug/deal
 
 tournament: release/build.ninja
-	cd release && ninja
+	cd release && ninja tournament
 	./release/tournament
 
 dtournament: debug/build.ninja
-	cd debug && ninja
+	cd debug && ninja tournament
 	./debug/tournament
 
 analyze: release/build.ninja
-	cd release && ninja
+	cd release && ninja analyze
 
 analyze1: analyze
 	./release/analyze -d 2006d6c0864151ba79c30127   # slam dunk shoot moon current player
@@ -54,12 +54,15 @@ analyze4: analyze
 	./release/analyze -d a5a9d06f5c340ca6ab864fb6 # Second player shoots the moon with strong, but I think stoppable hand
 
 disttest: debug/build.ninja
-	cd debug && ninja && ./disttest
+	cd debug && ninja disttest && ./disttest
 
 validate: debug/build.ninja
-	cd debug && ninja
+	cd debug && ninja validate
 
 validate1: validate
 	./debug/validate 2006d6c0864151ba79c30127
+
+play: release/build.ninja
+	cd release && ninja play
 
 all: opt tournament analyze1 disttest deal validate1

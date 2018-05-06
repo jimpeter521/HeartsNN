@@ -11,6 +11,7 @@ add_library(lib STATIC
     GameOutcome.cpp
     GameState.cpp
     HeartsState.cpp
+    HumanPlayer.cpp
     KnowableState.cpp
     MonteCarlo.cpp
     NoVoidsAnalyzer.cpp
@@ -20,6 +21,7 @@ add_library(lib STATIC
     RandomStrategy.cpp
     Semaphore.cpp
     Strategy.cpp
+    Tournament.cpp
     TwoOpponentsGetSuit.cpp
     VoidBits.cpp
     WriteDataAnnotator.cpp
