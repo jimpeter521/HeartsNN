@@ -1,23 +1,22 @@
 #include "lib/HeartsState.h"
 #include "lib/Card.h"
-#include <string.h>
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
-HeartsState::~HeartsState()
-{}
+HeartsState::~HeartsState() {}
 
 HeartsState::HeartsState(uint128_t dealIndex)
-: mDealIndex(dealIndex)
-, mNextPlay(0)
-, mLead(0)
-, mTrickSuit(kUnknown)
-, mPointsPlayed(0)
-, mIsVoidBits()
-, mUnplayedCards(kFull, kCardsPerDeck)
-, mTrackTrickWinsAtPlay(-1)
-, mTrackTrickWinsForPlayer(-1)
-, mTrackTrickWinsCounter(0)
+    : mDealIndex(dealIndex)
+    , mNextPlay(0)
+    , mLead(0)
+    , mTrickSuit(kUnknown)
+    , mPointsPlayed(0)
+    , mIsVoidBits()
+    , mUnplayedCards(kFull, kCardsPerDeck)
+    , mTrackTrickWinsAtPlay(-1)
+    , mTrackTrickWinsForPlayer(-1)
+    , mTrackTrickWinsCounter(0)
 {
   bzero(mPlays, sizeof(mPlays));
   bzero(mScore, sizeof(mScore));
@@ -26,16 +25,16 @@ HeartsState::HeartsState(uint128_t dealIndex)
 }
 
 HeartsState::HeartsState(const HeartsState& other)
-: mDealIndex(other.mDealIndex)
-, mNextPlay(other.mNextPlay)
-, mLead(other.mLead)
-, mTrickSuit(other.mTrickSuit)
-, mPointsPlayed(other.mPointsPlayed)
-, mIsVoidBits(other.mIsVoidBits)
-, mUnplayedCards(other.mUnplayedCards)
-, mTrackTrickWinsAtPlay(other.mTrackTrickWinsAtPlay)
-, mTrackTrickWinsForPlayer(other.mTrackTrickWinsForPlayer)
-, mTrackTrickWinsCounter(other.mTrackTrickWinsCounter)
+    : mDealIndex(other.mDealIndex)
+    , mNextPlay(other.mNextPlay)
+    , mLead(other.mLead)
+    , mTrickSuit(other.mTrickSuit)
+    , mPointsPlayed(other.mPointsPlayed)
+    , mIsVoidBits(other.mIsVoidBits)
+    , mUnplayedCards(other.mUnplayedCards)
+    , mTrackTrickWinsAtPlay(other.mTrackTrickWinsAtPlay)
+    , mTrackTrickWinsForPlayer(other.mTrackTrickWinsForPlayer)
+    , mTrackTrickWinsCounter(other.mTrackTrickWinsCounter)
 {
   memcpy(mPlays, other.mPlays, sizeof(mPlays));
   memcpy(mScore, other.mScore, sizeof(mScore));
@@ -49,10 +48,11 @@ void HeartsState::VerifyHeartsState() const
   assert(mNextPlay < 52);
   assert(mLead < 4);
   assert(mPointsPlayed <= 26);
-  assert(mUnplayedCards.Size() == 52-mNextPlay);
+  assert(mUnplayedCards.Size() == 52 - mNextPlay);
 
   const Card trickSuit = TrickSuit(); // Run for its the assertions
-  if ((mNextPlay%4) != 0) {
+  if ((mNextPlay % 4) != 0)
+  {
     assert(SuitOf(mPlays[0]) == trickSuit);
   }
 
@@ -70,10 +70,7 @@ unsigned HeartsState::CurrentPlayer() const
   return currentPlayer;
 }
 
-void HeartsState::UpdatePointsPlayed(Card card)
-{
-  mPointsPlayed += PointsFor(card);
-}
+void HeartsState::UpdatePointsPlayed(Card card) { mPointsPlayed += PointsFor(card); }
 
 Card HeartsState::GetTrickPlay(unsigned i) const
 {
@@ -93,12 +90,13 @@ unsigned HeartsState::TrickWinner() const
   assert((mNextPlay % 4) == 3);
   assert(SuitOf(mPlays[0]) == mTrickSuit);
   Rank high = RankOf(mPlays[0]);
-  for (unsigned i=1; i<4; i++)
+  for (unsigned i = 1; i < 4; i++)
   {
     if (SuitOf(mPlays[i]) == mTrickSuit)
     {
       Rank r = RankOf(mPlays[i]);
-      if (high < r) {
+      if (high < r)
+      {
         high = r;
         winner = i;
       }
@@ -106,9 +104,10 @@ unsigned HeartsState::TrickWinner() const
   }
 
   // Conver the winner number here to be the actual player number.
-  winner = (winner + mLead) %4;
+  winner = (winner + mLead) % 4;
 
-  if (mTrackTrickWinsCounter!=0 && mNextPlay==mTrackTrickWinsAtPlay && mTrackTrickWinsForPlayer==winner) {
+  if (mTrackTrickWinsCounter != 0 && mNextPlay == mTrackTrickWinsAtPlay && mTrackTrickWinsForPlayer == winner)
+  {
     ++(*mTrackTrickWinsCounter);
   }
 
@@ -118,21 +117,20 @@ unsigned HeartsState::TrickWinner() const
 unsigned HeartsState::ScoreTrick()
 {
   unsigned points = 0;
-  for (unsigned i=0; i<4; ++i) {
+  for (unsigned i = 0; i < 4; ++i)
+  {
     points += PointsFor(mPlays[i]);
     UpdatePointsPlayed(mPlays[i]);
   }
   return points;
 }
 
-unsigned HeartsState::GetScoreFor(unsigned player) const
-{
-  return mScore[player];
-}
+unsigned HeartsState::GetScoreFor(unsigned player) const { return mScore[player]; }
 
 void HeartsState::AddToScoreFor(unsigned player, unsigned score)
 {
-  if (score) {
+  if (score)
+  {
     mScore[player] += score;
     mPointTricks[player] += 1;
   }
@@ -145,20 +143,11 @@ GameOutcome HeartsState::CheckForShootTheMoon()
   return outcome;
 }
 
-void HeartsState::RemoveUnplayedCard(Card card)
-{
-  mUnplayedCards.RemoveCard(card);
-}
+void HeartsState::RemoveUnplayedCard(Card card) { mUnplayedCards.RemoveCard(card); }
 
-void HeartsState::setIsVoid(int player, Suit suit)
-{
-  mIsVoidBits.setIsVoid(player, suit);
-}
+void HeartsState::setIsVoid(int player, Suit suit) { mIsVoidBits.setIsVoid(player, suit); }
 
-bool HeartsState::isVoid(int player, Suit suit) const
-{
-  return mIsVoidBits.isVoid(player, suit);
-}
+bool HeartsState::isVoid(int player, Suit suit) const { return mIsVoidBits.isVoid(player, suit); }
 
 CardDeck HeartsState::UnplayedCardsNotInHand(const CardHand& myHand) const
 {
@@ -193,23 +182,37 @@ CardHand HeartsState::LegalPlays() const
   {
     // This hand leads for this trick
     // If no points have been played, we can't lead with a card with points
-    choices = PointsPlayed()==0 ? hand.NonPointCards() : hand;
+    choices = PointsPlayed() == 0 ? hand.NonPointCards() : hand;
   }
   else
   {
     // We're not leading. If we have any cards from the trickSuit then only cards of the trickSuit are legal.
     const Suit trickSuit = TrickSuit();
-    assert(trickSuit>=kClubs && trickSuit<=kHearts);
     choices = hand.CardsWithSuit(trickSuit);
   }
 
-  // Both of the two paths could have resulted in no legal choices. When that happens, all cards in hand are legal.
+  // Both of the above two paths could have resulted in no legal choices.
   if (choices.Size() == 0)
-    choices = hand;
-
-  if (PointsPlayed()==26)
   {
-    // When no more points are remaining to be played, all legal cards are equivalent, so just return the first card.
+    if (PlayNumber() < 4)
+    {
+      // In the first trick, we are not allowed to play a point card
+      choices = hand.NonPointCards();
+    }
+
+    // In the rare chance that a player only has point cards in first trick,
+    // we must check again to see if they have no legal choices
+    if (choices.Size() == 0)
+    {
+      // In any other trick, all cards become playable
+      choices = hand;
+    }
+  }
+
+  if (PointsPlayed() == 26)
+  {
+    // When no more points are remaining to be played, all legal cards are equivalent, so just return the first
+    // card.
     Card card = choices.FirstCard();
     CardHand hand;
     hand.InsertCard(card);
@@ -225,7 +228,7 @@ CardHand HeartsState::LegalPlays() const
 bool HeartsState::PointsSplit() const
 {
   int playersWithPoints = 0;
-  for (int i=0; i<4; ++i)
+  for (int i = 0; i < 4; ++i)
     if (mScore[i] != 0)
       ++playersWithPoints;
   return playersWithPoints > 1;
@@ -238,9 +241,9 @@ Suit HeartsState::TrickSuit() const
   //   return mTrickSuit;
   // }
 
-  assert(mTrickSuit==kUnknown || PlayInTrick()!=0);
-  assert(mTrickSuit!=kUnknown || PlayInTrick()==0);
-  assert((mTrickSuit==kUnknown && PlayInTrick()==0) || mTrickSuit==SuitOf(mPlays[0]));
+  assert(mTrickSuit == kUnknown || PlayInTrick() != 0);
+  assert(mTrickSuit != kUnknown || PlayInTrick() == 0);
+  assert((mTrickSuit == kUnknown && PlayInTrick() == 0) || mTrickSuit == SuitOf(mPlays[0]));
 
   return mTrickSuit;
 }
@@ -249,7 +252,7 @@ void HeartsState::SetTrickSuit(Suit suit)
 {
   assert(PlayInTrick() == 0);
   assert(mTrickSuit == kUnknown);
-  assert(suit>=kClubs && suit<=kHearts);
+  assert(suit >= kClubs && suit <= kHearts);
   mTrickSuit = suit;
 }
 
@@ -262,22 +265,27 @@ void HeartsState::AdvancePlayNumber()
 
 void HeartsState::TrackTrickWinner(unsigned* trickWins)
 {
-  if (trickWins == 0) {
+  if (trickWins == 0)
+  {
     mTrackTrickWinsCounter = 0;
     mTrackTrickWinsForPlayer = -1;
     mTrackTrickWinsAtPlay = -1;
-  } else {
+  }
+  else
+  {
     mTrackTrickWinsCounter = trickWins;
     mTrackTrickWinsForPlayer = CurrentPlayer();
 
-    // We call PlayInTrick() when PlayInTrick() returns 3, which happens when the bottom two bits of mNextPlay are set.
+    // We call PlayInTrick() when PlayInTrick() returns 3, which happens when the bottom two bits of mNextPlay are
+    // set.
     mTrackTrickWinsAtPlay = (mNextPlay | 3);
   }
 }
 
 bool HeartsState::IsCardOnTable(Card card) const
 {
-  for (int i=0; i<PlayInTrick(); ++i) {
+  for (int i = 0; i < PlayInTrick(); ++i)
+  {
     if (card == mPlays[i])
       return true;
   }
@@ -286,15 +294,18 @@ bool HeartsState::IsCardOnTable(Card card) const
 
 Card HeartsState::HighCardOnTable() const
 {
-  if (PlayInTrick() == 0) {
+  if (PlayInTrick() == 0)
+  {
     assert(false);
     return -1;
   }
 
   Rank highRank = RankOf(mPlays[0]);
-  for (int i=1; i<PlayInTrick(); ++i) {
+  for (int i = 1; i < PlayInTrick(); ++i)
+  {
     Card card = mPlays[i];
-    if (SuitOf(card)==mTrickSuit && highRank<RankOf(card)) {
+    if (SuitOf(card) == mTrickSuit && highRank < RankOf(card))
+    {
       highRank = RankOf(card);
     }
   }
@@ -302,20 +313,22 @@ Card HeartsState::HighCardOnTable() const
   return CardFor(highRank, mTrickSuit);
 }
 
-
 bool HeartsState::MightCardTakeTrick(Card card) const
 {
-  if (PlayInTrick() == 0) {
+  if (PlayInTrick() == 0)
+  {
     // A card leading a trick typically can take the trick.
     // If there are no unplayed cards in the suit, it's even guaranteed to take the trick.
     // But if the card is less than all unplayed cards, then it can't take the trick.
     const CardDeck unplayedInSuit = UnplayedCardsNotInHand(CurrentPlayersHand()).CardsWithSuit(SuitOf(card));
-    return unplayedInSuit.Size()==0 || card > unplayedInSuit.FirstCard();
+    return unplayedInSuit.Size() == 0 || card > unplayedInSuit.FirstCard();
   }
-  else if (SuitOf(card) != mTrickSuit) {
+  else if (SuitOf(card) != mTrickSuit)
+  {
     return false;
   }
-  else {
+  else
+  {
     Card highCard = HighCardOnTable();
     return RankOf(card) > RankOf(highCard);
   }
@@ -324,22 +337,25 @@ bool HeartsState::MightCardTakeTrick(Card card) const
 bool HeartsState::WillCardTakeTrick(Card card) const
 {
   // Card can't take trick if it isn't following suit
-  if (PlayInTrick() != 0 && SuitOf(card) != mTrickSuit) {
+  if (PlayInTrick() != 0 && SuitOf(card) != mTrickSuit)
+  {
     return false;
   }
 
   const CardDeck unplayedInSuit = UnplayedCardsNotInHand(CurrentPlayersHand()).CardsWithSuit(SuitOf(card));
-  const bool cardIsHigherThanAnyUnplayed = unplayedInSuit.Size()==0 || card > unplayedInSuit.LastCard();
+  const bool cardIsHigherThanAnyUnplayed = unplayedInSuit.Size() == 0 || card > unplayedInSuit.LastCard();
 
   // If we are leading, we can only force taking the trick if we play a card higher than any unplayed card in suit
-  if (PlayInTrick() == 0) {
+  if (PlayInTrick() == 0)
+  {
     return cardIsHigherThanAnyUnplayed;
   }
 
   const Card highCard = HighCardOnTable();
 
   // If we are last in trick, we just have to beat the high card on table.
-  if (PlayInTrick() == 3) {
+  if (PlayInTrick() == 3)
+  {
     return RankOf(card) > RankOf(highCard);
   }
 
@@ -350,7 +366,7 @@ bool HeartsState::WillCardTakeTrick(Card card) const
 unsigned HeartsState::PointsOnTable() const
 {
   unsigned points = 0;
-  for (int i=0; i<PlayInTrick(); ++i)
+  for (int i = 0; i < PlayInTrick(); ++i)
     points += PointsFor(mPlays[i]);
   return points;
 }
