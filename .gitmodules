@@ -1,6 +1,9 @@
 [submodule "googletest"]
 	path = googletest
 	url = git@github.com:njlr/googletest.git
-[submodule "dlib"]
-	path = dlib
-	url = git@github.com:davisking/dlib.git
+[submodule "gate"]
+	path = gate
+	url = https://github.com/hunter-packages/gate.git
+[submodule "polly"]
+	path = polly
+	url = https://github.com/ruslo/polly.git
