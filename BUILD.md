@@ -124,12 +124,17 @@ The final step will be to run several of the components to test the build.
 
 ##### Trying out HeartsNN with the application `play`
 
-If there are no errors, you should be able to play a game of hearts using the program `play` built with optimizations on in the `release` directory, as follows:
+If there are no errors, you should be able to play a game of hearts using the program `play` built with optimizations on in the `release` directory, as follows. First, you'll need a model. A set of models are available via Dropbox here:
 
-    release/play savedmodel
+    https://www.dropbox.com/sh/3cxt5vjdat0bxon/AACjHfgF6LBLohH6ipXVaDXJa?dl=0
 
-`savedmodel` is a built NN model created from several generations of reinforcement learning, and represents
-hundreds of hours of compute time on millions of simulated Hearts games.
+From that directory, download one of the models, e.g. `round4.model`
+
+You can then play against that model with this command:
+
+    release/play round4.model
+
+(TODO: Document how the models were built. Note that `round5` is a larger model that should be better than `round4`, but the improvement is marginal at best.)
 
 The UI of `release/play` is pure console I/O, and the UX is frankly *horrible*. I'm working towards something much nicer, which will allow playing against a running server, so that all of these build steps are unneccessary.
 
@@ -142,3 +147,25 @@ The second letter is the suit, and must be one of `CDSH`.
 The most horrible part of the experience is the game app stops only when it is your turn and you have a choice in what to play. Information that is vital to understanding exactly what happened between your plays is largely lost. It does show you if points have been split, if the queen has been played, and the current number of points per player, which is most, but certainly not all, of the information needed to make an informed choice.
 
 Note that I have not implemented the first part of the game, i.e. choosing 3 cards to pass to an opponent. For now, you must always play the 13 cards dealt to you.
+
+##### Comparing models with the application `tournament`.
+
+If you download more than one model, you can two models against each other in a kind of "tournament". First, make sure that the application is built:
+
+    make tournament
+
+Then run it like this:
+
+    release/tournament --champion round2.model --opponent round4.model -g 10
+
+(Note: the terms "champion" and "opponent" are purely arbitrary labels.)
+
+This will play ten "matches", where each match is six games/hands, each played from the same deal of cards, but using the six possible distinct permuations of the two players playing the four possible positions at the table.
+
+The intention is to try to have a completely fair evaluation of how two strategies play against each other, controlling for the variability of good vs bad hands. Hearts is a game where even a perfect player will be unable to win given some deals. In any given deal, it is common for one or two players to have distinctly "good" hands and one or two players to have distinctly "bad" hands. The six-game match is designed to make sure that each player strategy has to not only play each of the hands, but to also do so against the three possible ways of facing a copy of himself and two copies of the other player strategy.
+
+The match is score by summing for each player the scores across all games. Note that this is NOT team play, none of the players has any understanding of the match structure, and plays purely to optimize only his own outcome.
+
+Note that the models, when played as above, are purely deterministic, i.e. they do not use pseudorandom numbers as part of their play. If the same model is played against itself, the match will always result in a perfect tie.
+
+Also, it is possible to choose in advance the deals that will be used in a match. If the same set of deals is played with the same two players, the outcomes will be identical.
