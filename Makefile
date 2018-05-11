@@ -1,7 +1,7 @@
 .PHONY: hearts deal build test disttest analyze all analyze1 analyze2
 
 POLLY_ROOT=$(realpath ./polly)
-TOOLCHAIN=$(POLLY_ROOT)/clang-cxx14.cmake
+TOOLCHAIN=$(POLLY_ROOT)/clang-cxx17.cmake
 
 debug:
 	mkdir -p debug
