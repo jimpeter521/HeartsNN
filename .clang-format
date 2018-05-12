@@ -7,6 +7,8 @@ NamespaceIndentation: None
 BreakBeforeBraces: Custom
 AlwaysBreakTemplateDeclarations: true
 Cpp11BracedListStyle: true
+IndentCaseLabels: true
+AccessModifierOffset: -2
 BraceWrapping:
   AfterClass:      true
   AfterControlStatement: true
