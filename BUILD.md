@@ -30,12 +30,19 @@ or `virtualenv` instead.
 
     brew install python3
 
+If you use pyenv to manage your python versions, follow these steps:
+
+    pyenv install 3.6.3
+    pyenv local 3.6.3
+
 ### Install Python packages required by Tensorflow
 
 Tensorflow requires these packages.
 I don't use `sudo`, because I chown'd /usr/local to be owned by me.
 
     pip3 install six numpy wheel
+
+(You may be able to use 'pip' instead of 'pip3' depending on how you have python installed.)
 
 ### Clone the tensorflow repository
 
@@ -104,7 +111,7 @@ applications have access to them. The steps I have below are a bit hacky, but th
 
 ### Building the HeartsNN components
 
-##### Install the necessay Mac OS build tools
+##### Install the necessary Mac OS build tools
 
 The build assumes you have installed `Xcode`, and uses `make`, `cmake`. The `Xcode` install provides `make`, but you probably need to install `cmake`.
 
