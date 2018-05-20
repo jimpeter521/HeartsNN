@@ -129,29 +129,32 @@ This should build all components. This first build will install and build additi
 
 The final step will be to run several of the components to test the build.
 
-##### Trying out HeartsNN with the application `play`
+##### Trying out HeartsNN with the client-server architecture in `play_hearts`
 
-If there are no errors, you should be able to play a game of hearts using the program `play` built with optimizations on in the `release` directory, as follows. First, you'll need a model. A set of models are available via Dropbox here:
+If there are no errors, you should be able to play the game of hearts using the server `play_hearts/server`
+and the client application `play_hearts/cliclient`. First, you'll need a model. A set of models are available via Dropbox here:
 
     https://www.dropbox.com/sh/3cxt5vjdat0bxon/AACjHfgF6LBLohH6ipXVaDXJa?dl=0
 
 From that directory, download one of the models, e.g. `round4.model`
 
-You can then play against that model with this command:
+You can then start the server with this command in one terminal session:
 
-    release/play round4.model
+    debug/play_hearts/server/server round4.model
+
+Then, in another terminal session:
+
+    debug/play_hearts/cliclient/cliclient
 
 (TODO: Document how the models were built. Note that `round5` is a larger model that should be better than `round4`, but the improvement is marginal at best.)
 
-The UI of `release/play` is pure console I/O, and the UX is frankly *horrible*. I'm working towards something much nicer, which will allow playing against a running server, so that all of these build steps are unneccessary.
+The UI of `cliclient` is pure console I/O
 
-Card choices in the `release/play` app are two letter combinations (case insensitive).
+Card choices in `cliclient` app are two letter combinations (case insensitive).
 
 The first letter is the rank, and must be one of `23456789TJQKA`. Note `T` for 10
 
 The second letter is the suit, and must be one of `CDSH`.
-
-The most horrible part of the experience is the game app stops only when it is your turn and you have a choice in what to play. Information that is vital to understanding exactly what happened between your plays is largely lost. It does show you if points have been split, if the queen has been played, and the current number of points per player, which is most, but certainly not all, of the information needed to make an informed choice.
 
 Note that I have not implemented the first part of the game, i.e. choosing 3 cards to pass to an opponent. For now, you must always play the 13 cards dealt to you.
 

@@ -1,9 +1,11 @@
 #pragma once
 
 #include "lib/Card.h"
-#include "lib/VoidBits.h"
 #include "lib/CardArray.h"
 #include "lib/GameOutcome.h"
+#include "lib/VoidBits.h"
+
+#include <array>
 
 // HeartsState is an abstract base class, for implementation classes KnowableState and GameState.
 // HeartsState should only contain "knowable" information, i.e. information that any of the 4 players
@@ -16,7 +18,8 @@
 // But the only way we use dealIndex is to replay a game later while debugging or analyzing performance.
 // We keep the dealIndex here just for convenience.
 
-class HeartsState {
+class HeartsState
+{
 public:
   virtual ~HeartsState();
 
@@ -36,23 +39,23 @@ public:
 
   Card HighCardOnTable() const;
   bool MightCardTakeTrick(Card card) const;
-    // false if the card is not in trick suit or is less than the high card in trick so far.
-    // A true means the card is not ruled out from taking trick, but does not guarantee it will.
+  // false if the card is not in trick suit or is less than the high card in trick so far.
+  // A true means the card is not ruled out from taking trick, but does not guarantee it will.
 
   bool WillCardTakeTrick(Card card) const;
-    // True if this legal play card is guaranteed to take the current trick.
-    // False if card is not in trick suit, or is less than unplayed cards in the suit.
+  // True if this legal play card is guaranteed to take the current trick.
+  // False if card is not in trick suit, or is less than unplayed cards in the suit.
 
   bool IsCardOnTable(Card card) const;
-    // True if card is currently face up on table in current trick
+  // True if card is currently face up on table in current trick
 
   unsigned PointsOnTable() const;
-    // Return the number of points for cards currently face up on the table
+  // Return the number of points for cards currently face up on the table
 
   // Trick relative
   unsigned PlayerLeadingTrick() const { return mLead; }
   unsigned PlayInTrick() const { return mNextPlay % 4; }
-  unsigned CurrentPlayer() const;  // (mLead + playInTrick) % 4;
+  unsigned CurrentPlayer() const; // (mLead + playInTrick) % 4;
   void SetLead(int player) { mLead = player; }
 
   // Total points played
@@ -91,12 +94,18 @@ public:
 
   void TrackTrickWinner(unsigned* trickWins);
 
+  const std::array<unsigned, 4>& PointsSoFar() const { return mScore; }
+
 protected:
   // Returns the player number of the player who wins the trick
   unsigned TrickWinner() const;
 
   // Sets the new lead based upon the trick winner
-  unsigned NewLead(int winner) { mLead = winner; return mLead; }
+  unsigned NewLead(int winner)
+  {
+    mLead = winner;
+    return mLead;
+  }
 
 private:
   const uint128_t mDealIndex;
@@ -106,18 +115,18 @@ private:
   unsigned mPointsPlayed;
   Card mPlays[4];
 
-  unsigned mScore[4];
-    // This is the number of points the player has won so far 0..26
+  std::array<unsigned, 4> mScore;
+  // This is the number of points the player has won so far 0..26
 
   unsigned mPointTricks[4];
-    // This is the number of tricks that the player won in which points were taken.
-    // When a player shoots the moon, three of the four slots will be 0.
-    // When a player nearly shot the moon but was stopped, two will be zero, one will be 1 (and other will be >1).
+  // This is the number of tricks that the player won in which points were taken.
+  // When a player shoots the moon, three of the four slots will be 0.
+  // When a player nearly shot the moon but was stopped, two will be zero, one will be 1 (and other will be >1).
 
   VoidBits mIsVoidBits;
   CardDeck mUnplayedCards;
 
-  int       mTrackTrickWinsAtPlay;
-  int       mTrackTrickWinsForPlayer;
+  int mTrackTrickWinsAtPlay;
+  int mTrackTrickWinsForPlayer;
   unsigned* mTrackTrickWinsCounter;
 };

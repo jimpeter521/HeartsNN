@@ -19,7 +19,7 @@ HeartsState::HeartsState(uint128_t dealIndex)
     , mTrackTrickWinsCounter(0)
 {
   bzero(mPlays, sizeof(mPlays));
-  bzero(mScore, sizeof(mScore));
+  mScore.fill(0);
   bzero(mPointTricks, sizeof(mPointTricks));
   VerifyHeartsState();
 }
@@ -30,6 +30,7 @@ HeartsState::HeartsState(const HeartsState& other)
     , mLead(other.mLead)
     , mTrickSuit(other.mTrickSuit)
     , mPointsPlayed(other.mPointsPlayed)
+    , mScore(other.mScore)
     , mIsVoidBits(other.mIsVoidBits)
     , mUnplayedCards(other.mUnplayedCards)
     , mTrackTrickWinsAtPlay(other.mTrackTrickWinsAtPlay)
@@ -37,7 +38,6 @@ HeartsState::HeartsState(const HeartsState& other)
     , mTrackTrickWinsCounter(other.mTrackTrickWinsCounter)
 {
   memcpy(mPlays, other.mPlays, sizeof(mPlays));
-  memcpy(mScore, other.mScore, sizeof(mScore));
   memcpy(mPointTricks, other.mPointTricks, sizeof(mPointTricks));
   VerifyHeartsState();
 }
