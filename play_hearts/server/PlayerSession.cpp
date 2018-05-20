@@ -125,18 +125,21 @@ void PlayerSession::OnStartGame(const StartGame& startGame)
   mGameState = nullptr;
 }
 
+static int toint(float f) { return int(nearbyint(f)); }
+
 void PlayerSession::SendGameResult(const GameOutcome& humanOutcome, const GameOutcome& referenceOutcome)
 {
+  const float kOffset = 6.5;
   ServerMessage serverMessage;
   playhearts::GameResult* result = serverMessage.mutable_gameresult();
   for (int p = 0; p < 4; p++)
   {
-    float score = humanOutcome.ZeroMeanStandardScore(p);
+    int score = toint(humanOutcome.ZeroMeanStandardScore(p) + kOffset);
     result->add_scores(score);
     mTotals[p] += score;
     result->add_totals(mTotals[p]);
 
-    score = referenceOutcome.ZeroMeanStandardScore(p);
+    score = toint(referenceOutcome.ZeroMeanStandardScore(p) + kOffset);
     result->add_referencescores(score);
     mReferenceTotals[p] += score;
     result->add_referencetotals(mReferenceTotals[p]);
