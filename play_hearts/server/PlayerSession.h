@@ -47,6 +47,6 @@ private:
   std::string mSessionToken;
 
   GameState* mGameState;
-  float mTotals[4] = {0};
-  float mReferenceTotals[4] = {0};
+  int mTotals[4] = {0};
+  int mReferenceTotals[4] = {0};
 };

@@ -123,12 +123,18 @@ message TrickResult
 
 message GameResult
 {
-  repeated float scores = 1;  // Always exactly four floats
-  repeated float totals = 2;  // Again, exactly four floats, the running totals over all games this session
+  // In most places we use zero mean scoring.
+  // But here we use mean 6.5 scoring.
+  // This gives the typical scoring when noone shoots the moon,
+  // but gives an atypical result for shooting the moon.
+  // The player who shoots gets a score of -13, and the other players get 13.
+
+  repeated int32 scores = 1;  // Always exactly four ints
+  repeated int32 totals = 2;  // Again, exactly four ints, the running totals over all games this session
 
   // As above, but the result that would have happened if the neural net also played in the client's seat
-  repeated float referenceScores = 3;  // Always exactly four floats
-  repeated float referenceTotals = 4;  // Again, exactly four floats, the running totals over all games this session
+  repeated int32 referenceScores = 3;  // Always exactly four ints
+  repeated int32 referenceTotals = 4;  // Again, exactly four ints, the running totals over all games this session
 }
 
 // ---- the definitions below are helper types.

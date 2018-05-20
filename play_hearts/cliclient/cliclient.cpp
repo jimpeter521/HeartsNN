@@ -5,6 +5,7 @@
 
 #include <assert.h>
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <random>
@@ -159,10 +160,10 @@ public:
 
   void OnGameResult(const GameResult& gameResult)
   {
-    float scores[4];
-    float totals[4];
-    float refscores[4];
-    float reftotals[4];
+    int scores[4];
+    int totals[4];
+    int refscores[4];
+    int reftotals[4];
     for (int p = 0; p < 4; ++p)
     {
       scores[p] = gameResult.scores(p);
@@ -170,12 +171,10 @@ public:
       refscores[p] = gameResult.referencescores(p);
       reftotals[p] = gameResult.referencetotals(p);
     }
-    std::cout << "   Scores: " << scores[0] << " " << scores[1] << " " << scores[2] << " " << scores[3]
-              << "  (Totals: " << totals[0] << " " << totals[1] << " " << totals[2] << " " << totals[3] << ")"
-              << std::endl;
-    std::cout << "Reference: " << refscores[0] << " " << refscores[1] << " " << refscores[2] << " " << refscores[3]
-              << "  (Totals: " << reftotals[0] << " " << reftotals[1] << " " << reftotals[2] << " " << reftotals[3]
-              << ")" << std::endl;
+    const char* kFormat = "%9s: %3d %3d %3d %3d (Totals: %3d %3d %3d %3d)\n";
+    printf(kFormat, "Scores", scores[0], scores[1], scores[2], scores[3], totals[0], totals[1], totals[2], totals[3]);
+    printf(kFormat, "Reference", refscores[0], refscores[1], refscores[2], refscores[3], reftotals[0], reftotals[1],
+        reftotals[2], reftotals[3]);
   }
 
   void PlayerSession()
