@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.5.1)
+cmake_minimum_required (VERSION 3.11.1)
 
 include("gate/cmake/HunterGate.cmake")
 HunterGate(
@@ -11,7 +11,7 @@ project (HeartsNN)
 add_definitions(-march=native)
 include_directories(${PROJECT_SOURCE_DIR})
 
-add_subdirectory(helloworld)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 hunter_add_package(dlib)
 find_package(dlib CONFIG REQUIRED)
@@ -39,3 +39,6 @@ target_link_libraries(tournament ${ALL_LIBRARIES})
 target_link_libraries(validate ${ALL_LIBRARIES})
 target_link_libraries(numpywriter ${ALL_LIBRARIES})
 target_link_libraries(play ${ALL_LIBRARIES})
+
+add_subdirectory(play_hearts)
+

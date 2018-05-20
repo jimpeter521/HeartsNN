@@ -1,0 +1,175 @@
+// Copyright 2015 gRPC authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.bicubic.playhearts";
+option java_outer_classname = "PlayHeartsProto";
+option objc_class_prefix = "HNN";
+
+package playhearts;
+
+// Interface exported by the server.
+service PlayHearts {
+  // A Bidirectional streaming RPC.
+  //
+  // Accepts a stream of RouteNotes sent while a route is being traversed,
+  // while receiving other RouteNotes (e.g. from other users).
+  rpc Connect(stream ClientMessage) returns(stream ServerMessage) {}
+}
+
+message ClientMessage
+{
+  // The session token must be present for all client messages except for the Player message
+  string sessionToken = 1;
+  oneof req
+  {
+    Player     player = 101;
+    StartGame  startGame = 102;
+    MyPlay     myPlay = 103;
+  }
+}
+
+message ServerMessage
+{
+  oneof res
+  {
+    Hello       hello = 101;
+    Hand        hand = 102;
+    CardPlayed  cardPlayed = 103;
+    YourTurn    yourTurn = 104;
+    TrickResult trickResult = 105;
+    GameResult  gameResult = 106;
+  }
+}
+
+// The client sends Player as first message, to identify who is playing.
+// The server will respond with a Hello message.
+message Player
+{
+  string name = 1;
+  string email = 2;
+}
+
+// The server sends Hello in reponse to Player. For now, it directly returns sessionToken,
+// which the client must then present in every other message sent.
+// In the future, we may require that email address is validated before the session token is assigned.
+message Hello
+{
+  string sessionToken = 1;
+  bool tokenInEmail = 2;
+}
+
+// The client sends StartGame to start a new game.
+// The server will respond with Hand message, showing the player what hand they were dealt.
+message StartGame
+{
+}
+
+// The server sends a Hand message at the beginning of a game to inform the player of the cards they were dealt.
+message Hand
+{
+  Cards cards = 1;
+}
+
+// The server sends one CardPlayed message for *every* card as it is played (all 52 plays)
+// In every trick, there will be 4 CardPlayed messages and 1 YourTurn message.
+message CardPlayed
+{
+  int32 playNumber = 1;
+  int32 player = 2;       // TODO: enum for player numbers: N E S W
+  Card card = 3;
+}
+
+// The server sends a YourTurn message whenever it is the player's turn to play a card.
+// The client must respond with a MyPlay message
+message YourTurn
+{
+  int32 playNumber = 1;
+  Cards trickSoFar = 2; // redundant with prior CardPlayed messages, but maybe convenient
+                        // the first card is the card that led the trick
+  Suit  trickSuit = 3;  // The suit that must be followed. Not set if leading.
+  Cards legalPlays = 4; // The cards that can be legally played
+  Cards hand = 5;       // The full hand
+}
+
+// The client sends a MyPlay message in respons to a YourTurn message from the server.
+// The next message from the server will be a CardPlayed message, echoing back the card played.
+message MyPlay
+{
+  Card card = 1;
+}
+
+// The server sends a TrickResult message at the end of each trick,
+// so that the client can show the user how the trick turned out,
+// and how many points each play has so far for this game.
+message TrickResult
+{
+  int32    trickWinner  = 1;
+  repeated int32 points = 2;  // Points so far this game, 0..26.
+}
+
+message GameResult
+{
+  repeated float scores = 1;  // Always exactly four floats
+  repeated float totals = 2;  // Again, exactly four floats, the running totals over all games this session
+
+  // As above, but the result that would have happened if the neural net also played in the client's seat
+  repeated float referenceScores = 3;  // Always exactly four floats
+  repeated float referenceTotals = 4;  // Again, exactly four floats, the running totals over all games this session
+}
+
+// ---- the definitions below are helper types.
+
+enum Suit
+{
+  Clubs = 0;
+  Diamonds = 1;
+  Spades = 2;
+  Hearts = 3;
+}
+
+enum Rank
+{
+  Two = 0;
+  Three = 1;
+  Four = 2;
+  Five = 3;
+  Six = 4;
+  Seven = 5;
+  Eight = 6;
+  Nine = 7;
+  Ten = 8;
+  Jack = 9;
+  Queen = 10;
+  King = 11;
+  Ace = 12;
+}
+
+// This message is only sent as a submessage of other messages.
+// It is the encoding of one card.
+message Card
+{
+  Suit suit = 1;
+  Rank rank = 2;
+}
+
+// This message is only sent as a submessage of other messages.
+// It is the encoding of multiple cards.
+message Cards
+{
+  repeated Card card = 1;
+}
+

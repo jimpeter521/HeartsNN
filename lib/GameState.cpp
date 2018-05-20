@@ -1,17 +1,17 @@
 #include "lib/GameState.h"
+#include "lib/Annotator.h"
 #include "lib/KnowableState.h"
 #include "lib/RandomStrategy.h"
-#include "lib/Annotator.h"
 
 #include <assert.h>
 
 GameState::GameState()
-: HeartsState(Deal::RandomDealIndex())
-, mHands()
+    : HeartsState(Deal::RandomDealIndex())
+    , mHands()
 {
   Deal deck(dealIndex());
 
-  for (int i=0; i<4; i++)
+  for (int i = 0; i < 4; i++)
   {
     mHands[i] = deck.dealFor(i);
   }
@@ -22,10 +22,10 @@ GameState::GameState()
 }
 
 GameState::GameState(const Deal& deck)
-: HeartsState(deck.dealIndex())
-, mHands()
+    : HeartsState(deck.dealIndex())
+    , mHands()
 {
-  for (int i=0; i<4; i++)
+  for (int i = 0; i < 4; i++)
   {
     mHands[i] = deck.dealFor(i);
   }
@@ -36,9 +36,9 @@ GameState::GameState(const Deal& deck)
 }
 
 GameState::GameState(const GameState& other)
-: HeartsState(other)
+    : HeartsState(other)
 {
-  for (int i=0; i<4; i++)
+  for (int i = 0; i < 4; i++)
   {
     mHands[i] = other.mHands[i];
   }
@@ -46,12 +46,12 @@ GameState::GameState(const GameState& other)
 }
 
 GameState::GameState(const GameState& other, const CardHands& hands)
-: HeartsState(other)
+    : HeartsState(other)
 {
   other.IsVoidBits().VerifyVoids(hands);
 
   const int current = CurrentPlayer();
-  for (int i=0; i<4; i++)
+  for (int i = 0; i < 4; i++)
   {
     if (i == current)
     {
@@ -67,10 +67,10 @@ GameState::GameState(const GameState& other, const CardHands& hands)
 }
 
 GameState::GameState(const CardHands& hands, const KnowableState& knowableState)
-: HeartsState(knowableState)
+    : HeartsState(knowableState)
 {
   knowableState.IsVoidBits().VerifyVoids(hands);
-  for (int i=0; i<4; i++)
+  for (int i = 0; i < 4; i++)
     mHands[i] = hands[i];
   VerifyGameState();
 }
@@ -78,7 +78,7 @@ GameState::GameState(const CardHands& hands, const KnowableState& knowableState)
 void GameState::VerifyGameState() const
 {
 #ifndef NDEBUG
-  assert(CurrentPlayersHand().Size() == ((52-(PlayNumber() & ~0x3u)) / 4));
+  assert(CurrentPlayersHand().Size() == ((52 - (PlayNumber() & ~0x3u)) / 4));
   assert(CurrentPlayersHand().AvailableCapacity() == 0);
 
   IsVoidBits().VerifyVoids(mHands);
@@ -94,7 +94,8 @@ GameOutcome GameState::PlayGame(StrategyPtr players[4], const RandomGenerator& r
     int i = CurrentPlayer();
     StrategyPtr player = players[i];
     AnnotatorPtr annotator = player->getAnnotator();
-    if (annotator) {
+    if (annotator)
+    {
       annotator->OnGameStateBeforePlay(*this);
     }
     NextPlay(player, rng);
@@ -128,10 +129,12 @@ void GameState::PrintState() const
 {
   printf("Play %d, Player %d has the lead\n", PlayNumber(), PlayerLeadingTrick());
   const int playInTrick = PlayInTrick();
-  for (int i=0; i<4; i++) {
+  for (int i = 0; i < 4; i++)
+  {
     int p = (PlayerLeadingTrick() + i) % 4;
 
-    if (i < playInTrick) {
+    if (i < playInTrick)
+    {
       const char* name = NameOf(GetTrickPlay(i));
       printf("%s |", name);
     }
@@ -148,14 +151,18 @@ void GameState::PlayCard(Card card)
 
   const int play = PlayNumber();
 
+  if (mPlayCardHook)
+    (mPlayCardHook)(play, currentPlayer, card);
+
   const int playInTrick = PlayInTrick();
 
   SetTrickPlay(playInTrick, card);
   RemoveUnplayedCard(card);
   mHands[currentPlayer].RemoveCard(card);
 
- // If this is the first card in the trick, it determines the suit for the trick
-  if (play == 0) {
+  // If this is the first card in the trick, it determines the suit for the trick
+  if (play == 0)
+  {
     assert(TrickSuit() == kUnknown);
     assert(card == CardFor(kTwo, kClubs));
     SetTrickSuit(kClubs);
@@ -178,6 +185,8 @@ void GameState::PlayCard(Card card)
     const unsigned pointsInTrick = ScoreTrick();
     int lead = NewLead(winner);
     AddToScoreFor(lead, pointsInTrick);
+    if (mTrickResultHook)
+      (mTrickResultHook)(lead, PointsSoFar());
   }
 
   // Only now do we advance the play number.
@@ -188,10 +197,12 @@ Card GameState::NextPlay(const StrategyPtr& currentPlayersStrategy, const Random
 {
   Card card;
   const CardHand choices = LegalPlays();
-  if (PointsPlayed()==26 || choices.Size()==1) {
+  if (PointsPlayed() == 26 || choices.Size() == 1)
+  {
     card = choices.FirstCard();
   }
-  else {
+  else
+  {
     KnowableState knowableState(*this);
     card = currentPlayersStrategy->choosePlay(knowableState, rng);
     assert(choices.HasCard(card));

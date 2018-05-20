@@ -1,4 +1,4 @@
-.PHONY: hearts deal build test disttest analyze all analyze1 analyze2
+.PHONY: hearts deal build test disttest analyze all analyze1 analyze2 xcode_clean xcode_pristine
 
 POLLY_ROOT=$(realpath ./polly)
 TOOLCHAIN=$(POLLY_ROOT)/clang-cxx17.cmake
@@ -25,7 +25,12 @@ release-all: release/Makefile
 	make -C release -j8 all
 
 xcode/HeartsNN.xcodeproj: xcode
-	cd xcode && cmake -G Xcode ..
+	cd xcode && cmake -G Xcode -DCMAKE_TOOLCHAIN_FILE=$(POLLY_ROOT)/xcode.cmake ..
+
+xcode_clean:
+	rm -rf xcode
+
+xcode_pristine : xcode_clean xcode/HeartsNN.xcodeproj
 
 hearts: debug/Makefile
 	make -C debug -j8 hearts
@@ -74,5 +79,8 @@ validate1: validate
 
 play: release/Makefile
 	make -C release -j8 play
+
+server: debug/Makefile
+	make -C debug -j8 server testclient cliclient
 
 all: debug-all release-all opt tournament analyze1 disttest deal validate1
