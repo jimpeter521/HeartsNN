@@ -37,7 +37,7 @@ public:
   void OnMyPlay(const MyPlay& myplay);
 
   void SendHand(const CardHand& hand);
-  void SendGameResult(const GameOutcome& humanOutcome, const GameOutcome& referenceOutcome);
+  void SendHandResult(const GameOutcome& humanOutcome, const GameOutcome& referenceOutcome);
 
 private:
   ServerReaderWriter<ServerMessage, ClientMessage>* mStream;

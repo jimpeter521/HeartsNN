@@ -18,8 +18,8 @@ using grpc::Status;
 
 using ::playhearts::CardPlayed;
 using ::playhearts::ClientMessage;
-using ::playhearts::GameResult;
 using ::playhearts::Hand;
+using ::playhearts::HandResult;
 using ::playhearts::Player;
 using ::playhearts::PlayHearts;
 using ::playhearts::ServerMessage;
@@ -67,9 +67,9 @@ void AbstractClient::PlayOneGame()
         OnTrickResult(serverMessage.trickresult());
         break;
       }
-      case ServerMessage::kGameResult:
+      case ServerMessage::kHandResult:
       {
-        OnGameResult(serverMessage.gameresult());
+        OnHandResult(serverMessage.handresult());
         inProgress = false;
         break;
       }

@@ -119,7 +119,7 @@ void PlayerSession::OnStartGame(const StartGame& startGame)
     humanOutcome = mGameState->PlayGame(players, RandomGenerator::ThreadSpecific());
   }
 
-  SendGameResult(humanOutcome, referenceOutcome);
+  SendHandResult(humanOutcome, referenceOutcome);
 
   delete mGameState;
   mGameState = nullptr;
@@ -127,11 +127,11 @@ void PlayerSession::OnStartGame(const StartGame& startGame)
 
 static int toint(float f) { return int(nearbyint(f)); }
 
-void PlayerSession::SendGameResult(const GameOutcome& humanOutcome, const GameOutcome& referenceOutcome)
+void PlayerSession::SendHandResult(const GameOutcome& humanOutcome, const GameOutcome& referenceOutcome)
 {
   const float kOffset = 6.5;
   ServerMessage serverMessage;
-  playhearts::GameResult* result = serverMessage.mutable_gameresult();
+  playhearts::HandResult* result = serverMessage.mutable_handresult();
   for (int p = 0; p < 4; p++)
   {
     int score = toint(humanOutcome.ZeroMeanStandardScore(p) + kOffset);

@@ -51,7 +51,7 @@ message ServerMessage
     CardPlayed  cardPlayed = 103;
     YourTurn    yourTurn = 104;
     TrickResult trickResult = 105;
-    GameResult  gameResult = 106;
+    HandResult  handResult = 106;
   }
 }
 
@@ -121,8 +121,9 @@ message TrickResult
   repeated int32 points = 2;  // Points so far this game, 0..26.
 }
 
-message GameResult
+message HandResult
 {
+  // Sent at the end of one hand (i.e. one deal, 13 tricks).
   // In most places we use zero mean scoring.
   // But here we use mean 6.5 scoring.
   // This gives the typical scoring when noone shoots the moon,

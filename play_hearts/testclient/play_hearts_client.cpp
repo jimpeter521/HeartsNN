@@ -28,8 +28,8 @@ using grpc::Status;
 
 using ::playhearts::CardPlayed;
 using ::playhearts::ClientMessage;
-using ::playhearts::GameResult;
 using ::playhearts::Hand;
+using ::playhearts::HandResult;
 using ::playhearts::Player;
 using ::playhearts::PlayHearts;
 using ::playhearts::ServerMessage;
@@ -80,14 +80,14 @@ public:
     std::cout << "points: " << points[0] << " " << points[1] << " " << points[2] << " " << points[3] << std::endl;
   }
 
-  void OnGameResult(const GameResult& gameResult)
+  void OnHandResult(const HandResult& HandResult)
   {
     float scores[4];
     float totals[4];
     for (int p = 0; p < 4; ++p)
     {
-      scores[p] = gameResult.scores(p);
-      totals[p] = gameResult.totals(p);
+      scores[p] = HandResult.scores(p);
+      totals[p] = HandResult.totals(p);
     }
     std::cout << "Scores: " << scores[0] << " " << scores[1] << " " << scores[2] << " " << scores[3] << std::endl;
     std::cout << "Totals: " << totals[0] << " " << totals[1] << " " << totals[2] << " " << totals[3] << std::endl;
