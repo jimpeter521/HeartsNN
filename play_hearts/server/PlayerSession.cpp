@@ -6,14 +6,17 @@
 #include "play_hearts/conversions.h"
 #include "play_hearts/server/ClientPlayer.h"
 
+#include <algorithm>
+
 using playhearts::Hello;
 
 PlayerSession::PlayerSession(ServerReaderWriter<ServerMessage, ClientMessage>* stream, const char* modelpath)
     : mStream(stream)
     , mModelPath(modelpath)
-    , mGameState(nullptr)
 {
   assert(mModelPath != nullptr);
+  mTotals.fill(0);
+  mReferenceTotals.fill(0);
 }
 
 Status PlayerSession::ManageSession()
@@ -75,21 +78,19 @@ void PlayerSession::OnStartGame(const StartGame& startGame)
 {
   std::cout << "Received StartGame " << mPlayerName << " " << mSessionToken << std::endl;
 
-  assert(mGameState == nullptr);
-
   uint128_t N = Deal::RandomDealIndex();
-  mGameState = new GameState(N);
+  GameState gameState(N);
 
-  mGameState->SetPlayCardHook([this](int play, int player, Card card) {
+  gameState.SetPlayCardHook([this, &gameState](int play, int player, Card card) {
     ServerMessage serverMessage;
     playhearts::CardPlayed* cardPlayed = serverMessage.mutable_cardplayed();
-    cardPlayed->set_playnumber(this->mGameState->PlayNumber());
-    cardPlayed->set_player(this->mGameState->CurrentPlayer());
+    cardPlayed->set_playnumber(gameState.PlayNumber());
+    cardPlayed->set_player(gameState.CurrentPlayer());
     setProtocolCard(cardPlayed->mutable_card(), card);
     this->mStream->Write(serverMessage);
   });
 
-  mGameState->SetTrickResultHook([this](int trickWinner, const std::array<unsigned, 4>& points) {
+  gameState.SetTrickResultHook([this](int trickWinner, const std::array<unsigned, 4>& points) {
     ServerMessage serverMessage;
     playhearts::TrickResult* trickResult = serverMessage.mutable_trickresult();
     trickResult->set_trickwinner(trickWinner);
@@ -115,14 +116,37 @@ void PlayerSession::OnStartGame(const StartGame& startGame)
   }
   {
     players[0] = client;
-    SendHand(mGameState->HandForPlayer(0));
-    humanOutcome = mGameState->PlayGame(players, RandomGenerator::ThreadSpecific());
+    SendHand(gameState.HandForPlayer(0));
+    humanOutcome = gameState.PlayGame(players, RandomGenerator::ThreadSpecific());
   }
 
   SendHandResult(humanOutcome, referenceOutcome);
+}
 
-  delete mGameState;
-  mGameState = nullptr;
+bool PlayerSession::IsGameOver()
+{
+  bool gameOver = false;
+  auto itMax = std::max_element(mTotals.begin(), mTotals.end());
+  if (*itMax >= 100)
+  {
+    auto itMin = std::min_element(mTotals.begin(), mTotals.end());
+    int winner = itMin - mTotals.begin();
+    assert(winner >= 0);
+    assert(winner < 4);
+
+    // Be sure there isn't a tie
+    bool tied = false;
+    for (int i = 0; i < 4; i++)
+    {
+      if (i != winner && mTotals[i] == *itMin)
+      {
+        tied = true;
+        break;
+      }
+    }
+    gameOver = !tied;
+  }
+  return gameOver;
 }
 
 static int toint(float f) { return int(nearbyint(f)); }
@@ -132,6 +156,7 @@ void PlayerSession::SendHandResult(const GameOutcome& humanOutcome, const GameOu
   const float kOffset = 6.5;
   ServerMessage serverMessage;
   playhearts::HandResult* result = serverMessage.mutable_handresult();
+
   for (int p = 0; p < 4; p++)
   {
     int score = toint(humanOutcome.ZeroMeanStandardScore(p) + kOffset);
@@ -145,6 +170,30 @@ void PlayerSession::SendHandResult(const GameOutcome& humanOutcome, const GameOu
     result->add_referencetotals(mReferenceTotals[p]);
   }
   mStream->Write(serverMessage);
+
+  if (IsGameOver())
+  {
+    SendGameResult();
+  }
+}
+
+void PlayerSession::SendGameResult()
+{
+  ServerMessage serverMessage;
+  playhearts::GameResult* result = serverMessage.mutable_gameresult();
+  auto itMin = std::min_element(mTotals.begin(), mTotals.end());
+  int winner = itMin - mTotals.begin();
+  assert(winner >= 0);
+  assert(winner < 4);
+  result->set_winner(winner);
+  for (int p = 0; p < 4; p++)
+  {
+    result->add_totals(mTotals[p]);
+    result->add_referencetotals(mReferenceTotals[p]);
+  }
+  mStream->Write(serverMessage);
+  mTotals.fill(0);
+  mReferenceTotals.fill(0);
 }
 
 void PlayerSession::SendHand(const CardHand& hand)

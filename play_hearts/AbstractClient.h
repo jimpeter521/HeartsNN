@@ -31,7 +31,9 @@ public:
 
   virtual void OnTrickResult(const playhearts::TrickResult& trickResult) = 0;
 
-  virtual void OnHandResult(const playhearts::HandResult& HandResult) = 0;
+  virtual void OnHandResult(const playhearts::HandResult& handResult) = 0;
+
+  virtual void OnGameResult(const playhearts::GameResult& gameResult) = 0;
 
 protected:
   playhearts::ClientMessage newClientMessage();

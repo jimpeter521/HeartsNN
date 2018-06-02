@@ -29,6 +29,7 @@ using grpc::Status;
 
 using ::playhearts::CardPlayed;
 using ::playhearts::ClientMessage;
+using ::playhearts::GameResult;
 using ::playhearts::Hand;
 using ::playhearts::HandResult;
 using ::playhearts::Player;
@@ -158,7 +159,7 @@ public:
     std::cout << std::endl;
   }
 
-  void OnHandResult(const HandResult& HandResult)
+  void OnHandResult(const HandResult& handResult)
   {
     int scores[4];
     int totals[4];
@@ -166,14 +167,33 @@ public:
     int reftotals[4];
     for (int p = 0; p < 4; ++p)
     {
-      scores[p] = HandResult.scores(p);
-      totals[p] = HandResult.totals(p);
-      refscores[p] = HandResult.referencescores(p);
-      reftotals[p] = HandResult.referencetotals(p);
+      scores[p] = handResult.scores(p);
+      totals[p] = handResult.totals(p);
+      refscores[p] = handResult.referencescores(p);
+      reftotals[p] = handResult.referencetotals(p);
     }
     const char* kFormat = "%9s: %3d %3d %3d %3d (Totals: %3d %3d %3d %3d)\n";
     printf(kFormat, "Scores", scores[0], scores[1], scores[2], scores[3], totals[0], totals[1], totals[2], totals[3]);
     printf(kFormat, "Reference", refscores[0], refscores[1], refscores[2], refscores[3], reftotals[0], reftotals[1],
+        reftotals[2], reftotals[3]);
+  }
+
+  void OnGameResult(const GameResult& gameResult)
+  {
+    int winner = gameResult.winner();
+    if (winner == 0)
+      std::cout << "You won!" << std::endl;
+    else
+      std::cout << "Player " << winner << " won." << std::endl;
+    int totals[4];
+    int reftotals[4];
+    for (int p = 0; p < 4; ++p)
+    {
+      totals[p] = gameResult.totals(p);
+      reftotals[p] = gameResult.referencetotals(p);
+    }
+    const char* kFormat = "%9s: %3d %3d %3d %3d (Reference: %3d %3d %3d %3d)\n";
+    printf(kFormat, "Final totals", totals[0], totals[1], totals[2], totals[3], reftotals[0], reftotals[1],
         reftotals[2], reftotals[3]);
   }
 

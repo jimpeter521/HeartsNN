@@ -73,6 +73,11 @@ void AbstractClient::PlayOneGame()
         inProgress = false;
         break;
       }
+      case ServerMessage::kGameResult:
+      {
+        OnGameResult(serverMessage.gameresult());
+        break;
+      }
       case ServerMessage::RES_NOT_SET:
       {
         assert(false);

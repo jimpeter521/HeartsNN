@@ -38,15 +38,17 @@ public:
 
   void SendHand(const CardHand& hand);
   void SendHandResult(const GameOutcome& humanOutcome, const GameOutcome& referenceOutcome);
+  void SendGameResult();
 
 private:
+  bool IsGameOver();
+
   ServerReaderWriter<ServerMessage, ClientMessage>* mStream;
   const char* const mModelPath;
   std::string mPlayerName;
   std::string mPlayerEmail;
   std::string mSessionToken;
 
-  GameState* mGameState;
-  int mTotals[4] = {0};
-  int mReferenceTotals[4] = {0};
+  std::array<int, 4> mTotals;
+  std::array<int, 4> mReferenceTotals;
 };
