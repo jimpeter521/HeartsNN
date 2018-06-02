@@ -51,7 +51,8 @@ message ServerMessage
     CardPlayed  cardPlayed = 103;
     YourTurn    yourTurn = 104;
     TrickResult trickResult = 105;
-    GameResult  gameResult = 106;
+    HandResult  handResult = 106;
+    GameResult  gameResult = 107;
   }
 }
 
@@ -121,8 +122,9 @@ message TrickResult
   repeated int32 points = 2;  // Points so far this game, 0..26.
 }
 
-message GameResult
+message HandResult
 {
+  // Sent at the end of one hand (i.e. one deal, 13 tricks).
   // In most places we use zero mean scoring.
   // But here we use mean 6.5 scoring.
   // This gives the typical scoring when noone shoots the moon,
@@ -130,11 +132,23 @@ message GameResult
   // The player who shoots gets a score of -13, and the other players get 13.
 
   repeated int32 scores = 1;  // Always exactly four ints
-  repeated int32 totals = 2;  // Again, exactly four ints, the running totals over all games this session
+  repeated int32 totals = 2;  // Again, exactly four ints, the running totals over all hands so far this game
 
   // As above, but the result that would have happened if the neural net also played in the client's seat
   repeated int32 referenceScores = 3;  // Always exactly four ints
-  repeated int32 referenceTotals = 4;  // Again, exactly four ints, the running totals over all games this session
+  repeated int32 referenceTotals = 4;  // Again, exactly four ints, running totals over all hands so far this game
+}
+
+message GameResult
+{
+  // The server sends GameResult when it can declare one player the winner.
+  // It resets the totals to zeros, but does not end the session.
+  int32 winner = 1; // The player who won the game, i.e. lowest score when player player reaches 100.
+                    // In case two players are tied with lowest score, when one player cross 100, we continue
+                    // playing to break the tie.
+  repeated int32 totals = 2;  // Exactly four ints, the totals over all hands in this game
+  repeated int32 referenceTotals = 3;  // Four ints, the totals that would have happed in NN played all four seats
+
 }
 
 // ---- the definitions below are helper types.
