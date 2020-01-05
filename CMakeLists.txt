@@ -1,11 +1,5 @@
 cmake_minimum_required (VERSION 3.11.1)
 
-include("gate/cmake/HunterGate.cmake")
-HunterGate(
-    URL "https://github.com/ruslo/hunter/archive/v0.20.61.tar.gz"
-    SHA1 "b66f77ffdf97d9b318b86817b79991f4c45d3de1"
-)
-
 project (HeartsNN)
 
 add_definitions(-march=native)
@@ -13,10 +7,14 @@ include_directories(${PROJECT_SOURCE_DIR})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-hunter_add_package(dlib)
-find_package(dlib CONFIG REQUIRED)
-
 include(tensorflow.cmake)
+
+include(FetchContent)
+FetchContent_Declare(dlib
+    GIT_REPOSITORY https://github.com/davisking/dlib.git
+    GIT_TAG        v19.18
+)
+FetchContent_MakeAvailable(dlib)
 
 add_executable(analyze analyze.cpp)
 add_executable(deal deal.cpp)
@@ -41,4 +39,3 @@ target_link_libraries(numpywriter ${ALL_LIBRARIES})
 target_link_libraries(play ${ALL_LIBRARIES})
 
 add_subdirectory(play_hearts)
-

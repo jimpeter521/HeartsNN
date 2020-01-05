@@ -1,19 +1,16 @@
 .PHONY: hearts deal build test disttest analyze all analyze1 analyze2 xcode_clean xcode_pristine
 
-POLLY_ROOT=$(realpath ./polly)
-TOOLCHAIN=$(POLLY_ROOT)/clang-cxx17.cmake
-
 debug:
 	mkdir -p debug
 
 debug/Makefile: debug
-	cd debug && cmake -DCMAKE_TOOLCHAIN_FILE=$(TOOLCHAIN) -DCMAKE_BUILD_TYPE=Debug ..
+	cmake/genbuild.sh debug
 
 release:
 	mkdir -p release
 
 release/Makefile: release
-	cd release && cmake -DCMAKE_TOOLCHAIN_FILE=$(TOOLCHAIN) -DCMAKE_BUILD_TYPE=Release ..
+	cmake/genbuild.sh release
 
 xcode:
 	mkdir -p xcode
