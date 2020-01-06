@@ -9,7 +9,7 @@ BUILD_NAME=${1:-$(basename "${BASH_SOURCE[0]}" ".sh")}
 REPO_ROOT="$(git-root)"
 PLATFORMS=${REPO_ROOT}/cmake/buildconfigs
 TOOLCHAIN=${PLATFORMS}/${BUILD_NAME}.cmake
-BUILDS=${BUILD_ROOT:-${REPO_ROOT}}
+BUILDS=${BUILD_ROOT:-${REPO_ROOT}}/builds
 
 if [ ! -f ${TOOLCHAIN} ]; then
     echo "BUILD NAME IS: ${BUILD_NAME}"
