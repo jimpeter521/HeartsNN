@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.11.1)
+cmake_minimum_required (VERSION 3.10.2)
 
 project (HeartsNN)
 
@@ -7,14 +7,15 @@ include_directories(${PROJECT_SOURCE_DIR})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include(tensorflow.cmake)
+# set(TensorFlow_INCLUDE_DIR /usr/local/include/tensorflow)
+# set(TensorFlow__framework_LIBRARY /usr/local/lib)
+# set(PROTOBUF_INCLUDE_DIR /usr/local/include/tensorflow/bazel-tensorflow/external/org_tensorflow/tensorflow/core/platform)
+# set(PROTOBUF_LIBRARY /usr/local/lib/tensorflow_cc/)
+# set(PROTOBUF_PROTOC_EXECUTABLE /usr/local/lib/tensorflow_cc/)
 
-include(FetchContent)
-FetchContent_Declare(dlib
-    GIT_REPOSITORY https://github.com/davisking/dlib.git
-    GIT_TAG        v19.18
-)
-FetchContent_MakeAvailable(dlib)
+
+include(cmake/dlib.cmake)
+include(cmake/tensorflow.cmake)
 
 add_executable(analyze analyze.cpp)
 add_executable(deal deal.cpp)
