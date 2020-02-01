@@ -4,7 +4,7 @@ find_path(TensorFlow_INCLUDE_DIR
         tensorflow/cc
         third_party
         HINTS
-        /usr/local/include/tf)
+        /usr/local/include/tensorflow)
 
 include(FindPackageHandleStandardArgs)
 unset(TENSORFLOW_FOUND)
