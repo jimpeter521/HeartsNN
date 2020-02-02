@@ -2,20 +2,19 @@ cmake_minimum_required (VERSION 3.10.2)
 
 project (HeartsNN)
 
+macro(echovar)
+message("${ARGV0}: ${${ARGV0}} in context ${CMAKE_CURRENT_LIST_FILE}")
+endmacro(echovar)
+
 add_definitions(-march=native)
 include_directories(${PROJECT_SOURCE_DIR})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# set(TensorFlow_INCLUDE_DIR /usr/local/include/tensorflow)
-# set(TensorFlow__framework_LIBRARY /usr/local/lib)
-# set(PROTOBUF_INCLUDE_DIR /usr/local/include/tensorflow/bazel-tensorflow/external/org_tensorflow/tensorflow/core/platform)
-# set(PROTOBUF_LIBRARY /usr/local/lib/tensorflow_cc/)
-# set(PROTOBUF_PROTOC_EXECUTABLE /usr/local/lib/tensorflow_cc/)
-
-
-include(cmake/dlib.cmake)
+add_subdirectory(dlib)
 include(cmake/tensorflow.cmake)
+
+add_subdirectory(lib)
 
 add_executable(analyze analyze.cpp)
 add_executable(deal deal.cpp)
@@ -26,17 +25,13 @@ add_executable(validate validate.cpp)
 add_executable(numpywriter numpywriter.cpp)
 add_executable(play play.cpp)
 
-add_subdirectory(lib)
-
-set(ALL_LIBRARIES lib ${TensorFlow_LIBRARIES} dlib::dlib)
-
-target_link_libraries(analyze ${ALL_LIBRARIES})
-target_link_libraries(deal ${ALL_LIBRARIES})
-target_link_libraries(disttest ${ALL_LIBRARIES})
-target_link_libraries(hearts ${ALL_LIBRARIES})
-target_link_libraries(tournament ${ALL_LIBRARIES})
-target_link_libraries(validate ${ALL_LIBRARIES})
-target_link_libraries(numpywriter ${ALL_LIBRARIES})
-target_link_libraries(play ${ALL_LIBRARIES})
+target_link_libraries(analyze core_lib)
+target_link_libraries(deal core_lib)
+target_link_libraries(disttest core_lib)
+target_link_libraries(hearts core_lib)
+target_link_libraries(tournament core_lib)
+target_link_libraries(validate core_lib)
+target_link_libraries(numpywriter core_lib)
+target_link_libraries(play core_lib)
 
 add_subdirectory(play_hearts)

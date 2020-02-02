@@ -1,6 +1,6 @@
 
 include_directories(${PROJECT_SOURCE_DIR})
-add_library(lib STATIC
+add_library(core_lib STATIC
     Annotator.cpp
     Card.cpp
     CardArray.cpp
@@ -33,4 +33,4 @@ add_library(lib STATIC
     timer.cpp
 )
 
-target_link_libraries(lib PUBLIC dlib::dlib)
+target_link_libraries(core_lib TensorflowCC::Static dlib::dlib)

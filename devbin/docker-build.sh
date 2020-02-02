@@ -46,7 +46,7 @@ done
 DOCKER_IMAGE="${DOCKER_IMAGE:-heartsnn}"
 
 # Allow Docker volumes used for building to be specified via env var.
-BUILDS_VOLUME=${BUILDS_VOLUME:-builds}
+BUILDS_VOLUME=${BUILDS_VOLUME:-heartsbuilds}
 
 # To run GDB from macOS, we need to use privileged mode a certain way.
 if (($privileged))
@@ -70,10 +70,10 @@ fi
 JOBS=${JOBS:-2}
 
 # Point to the Docker volume for build artifacts.
-BUILD_ROOT="$gitRoot/builds/volume"
+BUILD_ROOT="${gitRoot}/builds/volume"
 
 # Tell build.sh to rsync the build artifacts to the mounted volume after building.
-RSYNC_BUILDS="$gitRoot/builds"
+RSYNC_BUILDS="${gitRoot}/builds"
 
 # Pass through certain env vars, including ones that we set above.
 passthru=(BUILD_ROOT CTEST_OUTPUT_ON_FAILURE DEBUG JOBS RSYNC_BUILDS)
@@ -88,6 +88,12 @@ done
 # Allow DOCKER_ARGS to be passed through from the parent. Since arrays cannot be encoded in the environment, we simply
 # expand the variable without quotes to allow it to contain multiple arguments.
 # https://stackoverflow.com/questions/5564418/exporting-an-array-in-bash-script
+
+echo "gitRoot: ${gitRoot}"
+echo "BUILD_ROOT: ${BUILD_ROOT}"
+echo "BUILDS_VOLUME: ${BUILDS_VOLUME}"
+echo "DOCKER_IMAGE: ${DOCKER_IMAGE}"
+echo "RSYNC_BUILDS: ${RSYNC_BUILDS}"
 
 cwd=$(pwd -P); docker run --tty --rm \
        --cap-add=sys_nice \
