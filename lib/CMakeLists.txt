@@ -33,4 +33,4 @@ add_library(core_lib STATIC
     timer.cpp
 )
 
-target_link_libraries(core_lib TensorflowCC::Static dlib::dlib)
+target_link_libraries(core_lib TensorflowCC::Shared dlib::dlib)
