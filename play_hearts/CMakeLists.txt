@@ -1,8 +1,5 @@
 
 
-# GRPC and Protocol Buffers libraries location
-list(APPEND CMAKE_PREFIX_PATH "/usr/local/Cellar/grpc/1.11.0/" "/usr/local/Cellar/protobuf/3.5.1_1/")
-
 # Cmake find modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
