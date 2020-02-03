@@ -43,7 +43,7 @@ done
 
 # Run in the Docker image optimized for the dev cycle, or the image specified by DOCKER_IMAGE.
 # To build the default image, run `make docker/build` in the repo root.
-DOCKER_IMAGE="${DOCKER_IMAGE:-heartsnn}"
+DOCKER_IMAGE="${DOCKER_IMAGE:-heartsnn-build}"
 
 # Allow Docker volumes used for building to be specified via env var.
 BUILDS_VOLUME=${BUILDS_VOLUME:-heartsbuilds}
