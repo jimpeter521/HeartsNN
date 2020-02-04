@@ -83,6 +83,15 @@ endif()
 find_path(GRPC_INCLUDE_DIR grpc/grpc.h)
 mark_as_advanced(GRPC_INCLUDE_DIR)
 
+# Find gpr library
+find_library(GPR_LIBRARY NAMES gpr)
+mark_as_advanced(GPR_LIBRARY)
+add_library(gRPC::gpr UNKNOWN IMPORTED)
+set_target_properties(gRPC::gpr PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES ${GRPC_INCLUDE_DIR}
+    IMPORTED_LOCATION ${GPR_LIBRARY}
+)
+
 # Find gRPC library
 find_library(GRPC_LIBRARY NAMES grpc)
 mark_as_advanced(GRPC_LIBRARY)
@@ -123,4 +132,4 @@ set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES
 
 include(${CMAKE_ROOT}/Modules/FindPackageHandleStandardArgs.cmake)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(gRPC DEFAULT_MSG
-    GRPC_LIBRARY GRPC_INCLUDE_DIR GRPC_GRPC++_REFLECTION_LIBRARY GRPC_CPP_PLUGIN)
+    GRPC_LIBRARY GPR_LIBRARY GRPC_INCLUDE_DIR GRPC_GRPC++_REFLECTION_LIBRARY GRPC_CPP_PLUGIN)
