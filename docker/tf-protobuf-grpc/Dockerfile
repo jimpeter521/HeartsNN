@@ -1,20 +1,51 @@
 FROM tf-protobuf
 
-ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get -y install \
-    apt-utils
-
-RUN apt-get -y install \
-    libc-ares2 libc-ares-dev
-
 WORKDIR /tmp
 RUN git clone https://github.com/grpc/grpc.git
 WORKDIR /tmp/grpc
 RUN git submodule update --init --recursive
 
-RUN mkdir -p cmake/build && cd cmake/build && cmake \
-    -DgRPC_CARES_PROVIDER=module    \
-    -DgRPC_PROTOBUF_PROVIDER=package \
-    -DgRPC_SSL_PROVIDER=module      \
-    -DgRPC_ZLIB_PROVIDER=module     \
-    ../.. && make && make install
+# Install absl
+RUN mkdir -p /tmp/grpc/third_party/abseil-cpp/cmake/build
+WORKDIR /tmp/grpc/third_party/abseil-cpp/cmake/build
+RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ../..
+RUN make -j4 install
+
+# Install c-ares
+# If the distribution provides a new-enough version of c-ares,
+# this section can be replaced with:
+# apt-get install -y libc-ares-dev
+# RUN mkdir -p /tmp/grpc/third_party/cares/cares/cmake/build
+# WORKDIR /tmp/grpc/third_party/cares/cares/cmake/build
+# RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release ../..
+# RUN make -j4 install
+
+# Install zlib
+RUN mkdir -p /tmp/grpc/third_party/zlib/cmake/build
+WORKDIR /tmp/grpc/third_party/zlib/cmake/build
+RUN cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release ../..
+RUN make -j4 install
+
+# Just before installing gRPC, wipe out contents of all the submodules to simulate
+# a standalone build from an archive
+# shellcheck disable=SC2016
+WORKDIR /tmp/grpc
+RUN git submodule foreach 'cd $toplevel; rm -rf $name'
+
+# Install gRPC
+RUN mkdir -p /tmp/grpc/cmake/build
+WORKDIR /tmp/grpc/cmake/build
+RUN cmake -DCMAKE_INSTALL_PREFIX=/usr/local \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_SHARED_LIBS=OFF \
+  -DgRPC_INSTALL=ON \
+  -DgRPC_BUILD_TESTS=OFF \
+  -DgRPC_CARES_PROVIDER=package \
+  -DgRPC_ABSL_PROVIDER=package \
+  -DgRPC_PROTOBUF_PROVIDER=package \
+  -DgRPC_SSL_PROVIDER=package \
+  -DgRPC_ZLIB_PROVIDER=package \
+  ../..
+RUN make -j4 install
+
+RUN rm -rf /tmp/grpc
