@@ -1,6 +1,6 @@
 [submodule "googletest"]
 	path = googletest
-	url = git@github.com:njlr/googletest.git
+	url = https://github.com/njlr/googletest.git
 [submodule "dlib"]
 	path = dlib
 	url = https://github.com/davisking/dlib.git
