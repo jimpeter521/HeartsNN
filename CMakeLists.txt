@@ -35,3 +35,6 @@ target_link_libraries(numpywriter core_lib)
 target_link_libraries(play core_lib)
 
 add_subdirectory(play_hearts)
+
+add_subdirectory(googletest)
+add_subdirectory(tests)
