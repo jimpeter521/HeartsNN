@@ -1,7 +1,7 @@
 FROM heartsnn-build
 
 RUN git clone --depth=1 \
-    --branch=chore/build-in-docker.v1 \
+    --branch=master \
     --recurse-submodules \
     https://github.com/jimlloyd/HeartsNN.git \
     /heartsnn
