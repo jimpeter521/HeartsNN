@@ -5,7 +5,7 @@ add_executable(server
     $<TARGET_OBJECTS:play_hearts_lib>)
 
 target_link_libraries(server
-    ${ALL_LIBRARIES}
+    core_lib
     gRPC::grpc++_reflection
     protobuf::libprotobuf
     )

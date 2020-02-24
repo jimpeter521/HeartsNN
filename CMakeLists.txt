@@ -1,22 +1,20 @@
-cmake_minimum_required (VERSION 3.11.1)
-
-include("gate/cmake/HunterGate.cmake")
-HunterGate(
-    URL "https://github.com/ruslo/hunter/archive/v0.20.61.tar.gz"
-    SHA1 "b66f77ffdf97d9b318b86817b79991f4c45d3de1"
-)
+cmake_minimum_required (VERSION 3.10.2)
 
 project (HeartsNN)
+
+macro(echovar)
+message("${ARGV0}: ${${ARGV0}} in context ${CMAKE_CURRENT_LIST_FILE}")
+endmacro(echovar)
 
 add_definitions(-march=native)
 include_directories(${PROJECT_SOURCE_DIR})
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-hunter_add_package(dlib)
-find_package(dlib CONFIG REQUIRED)
+add_subdirectory(dlib)
+include(cmake/tensorflow.cmake)
 
-include(tensorflow.cmake)
+add_subdirectory(lib)
 
 add_executable(analyze analyze.cpp)
 add_executable(deal deal.cpp)
@@ -27,18 +25,16 @@ add_executable(validate validate.cpp)
 add_executable(numpywriter numpywriter.cpp)
 add_executable(play play.cpp)
 
-add_subdirectory(lib)
-
-set(ALL_LIBRARIES lib ${TensorFlow_LIBRARIES} dlib::dlib)
-
-target_link_libraries(analyze ${ALL_LIBRARIES})
-target_link_libraries(deal ${ALL_LIBRARIES})
-target_link_libraries(disttest ${ALL_LIBRARIES})
-target_link_libraries(hearts ${ALL_LIBRARIES})
-target_link_libraries(tournament ${ALL_LIBRARIES})
-target_link_libraries(validate ${ALL_LIBRARIES})
-target_link_libraries(numpywriter ${ALL_LIBRARIES})
-target_link_libraries(play ${ALL_LIBRARIES})
+target_link_libraries(analyze core_lib)
+target_link_libraries(deal core_lib)
+target_link_libraries(disttest core_lib)
+target_link_libraries(hearts core_lib)
+target_link_libraries(tournament core_lib)
+target_link_libraries(validate core_lib)
+target_link_libraries(numpywriter core_lib)
+target_link_libraries(play core_lib)
 
 add_subdirectory(play_hearts)
 
+add_subdirectory(googletest)
+add_subdirectory(tests)
