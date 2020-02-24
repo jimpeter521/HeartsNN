@@ -1,8 +1,8 @@
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 
-find_program(CMAKE_C_COMPILER clang)
-find_program(CMAKE_CXX_COMPILER clang++)
+find_program(CMAKE_C_COMPILER gcc)
+find_program(CMAKE_CXX_COMPILER g++)
 
 if(NOT CMAKE_C_COMPILER)
   message(FATAL_ERROR "Cannot find C compiler")
