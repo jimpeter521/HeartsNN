@@ -45,7 +45,8 @@ default_vals = {
      # 0 means that the CNN is the only part of the NN that sees the "distribution" data (4 suits by 7 features)
      # 2 means that the combined NN redundantly sees the two point suits (spades and hearts)
      # 4 means that the combined NN redundantly sees all four suits as direct input
-    'DECK_REDUN': 4
+    'DECK_REDUN': 4,
+    'DECK_MAXOBS' : 4*1024*1024
 }
 
 def env_val(name) :
@@ -71,6 +72,7 @@ EPOCHS = env_val('DECK_EPOCHS')
 SCORE = env_val('DECK_SCORE') == 1
 MOON = env_val('DECK_MOON') == 1
 TRICK = env_val('DECK_TRICK') == 1
+MAX_OBS = env_val('DECK_MAXOBS')
 
 MAIN_DATA = 'main_data'
 EXPECTED_SCORE = 'expected_score'

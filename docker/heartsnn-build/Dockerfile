@@ -2,3 +2,5 @@ FROM tf-protobuf-grpc
 
 # Allow mounting devbin on the path.
 ENV PATH="/vol/devbin:${PATH}"
+
+RUN pip3 install --user tensorflow==1.13.2

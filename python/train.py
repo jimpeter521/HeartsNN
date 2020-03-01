@@ -50,6 +50,14 @@ def load_memmaps(dirPath):
     assert len(winTrickProbs) == nsamples
     assert len(moonProbData) == nsamples
 
+    if nsamples > MAX_OBS:
+        print('Truncating dataset {} from {} to {}', dirPath, nsamples, MAX_OBS)
+        nsamples = MAX_OBS
+        mainData = mainData[:MAX_OBS]
+        scoresData = scoresData[:MAX_OBS]
+        winTrickProbs = winTrickProbs[:MAX_OBS]
+        moonProbData = moonProbData[:MAX_OBS]
+
     # TODO: this is a hack.
     # We need to scale the data, but this is a bit error prone, so we use asserts to verify the
     # input and output before and after scaling are in the correct ranges.
