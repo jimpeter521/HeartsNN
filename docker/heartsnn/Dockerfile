@@ -1,4 +1,4 @@
-FROM heartsnn-build
+FROM heartsnn/build:latest
 
 RUN git clone --depth=1 \
     --branch=master \

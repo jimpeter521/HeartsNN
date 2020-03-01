@@ -1,4 +1,4 @@
-FROM tf-protobuf
+FROM heartsnn/tf-protobuf:latest
 
 WORKDIR /tmp
 RUN git clone https://github.com/grpc/grpc.git

@@ -1,4 +1,4 @@
-FROM tf-protobuf-grpc
+FROM heartsnn/tf-protobuf-grpc:latest
 
 # Allow mounting devbin on the path.
 ENV PATH="/vol/devbin:${PATH}"
