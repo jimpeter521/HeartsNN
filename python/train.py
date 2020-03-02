@@ -61,7 +61,6 @@ def load_memmaps(dirPath):
     # TODO: this is a hack.
     # We need to scale the data, but this is a bit error prone, so we use asserts to verify the
     # input and output before and after scaling are in the correct ranges.
-    assert np.max(scoresData) >= (PREDICTION_SCORE_MAX - 1.5)
     scoresData = scoresData * (MODEL_SCORE_MAX / PREDICTION_SCORE_MAX)
     assert np.max(scoresData) <= MODEL_SCORE_MAX
 
