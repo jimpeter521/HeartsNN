@@ -19,3 +19,5 @@ add_subdirectory(apps)
 add_subdirectory(play_hearts)
 add_subdirectory(googletest)
 add_subdirectory(tests)
+
+add_subdirectory(websockets-cards)
