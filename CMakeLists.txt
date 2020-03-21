@@ -1,6 +1,11 @@
-cmake_minimum_required (VERSION 3.10.2)
+# We don't strictly require a version of cmake as recent as this.
+# But the only build system that is fully supported requires Docker,
+# and the standard Docker build image installs this version of cmake
+cmake_minimum_required (VERSION 3.16.2)
 
 project (HeartsNN)
+
+set(CMAKE_CXX_STANDARD 17)
 
 macro(echovar)
 message("${ARGV0}: ${${ARGV0}} in context ${CMAKE_CURRENT_LIST_FILE}")
