@@ -42,11 +42,10 @@ done
 
 
 # Run in the Docker image optimized for the dev cycle, or the image specified by DOCKER_IMAGE.
-# To build the default image, run `make docker/build` in the repo root.
-DOCKER_IMAGE="${DOCKER_IMAGE:-heartsnn-build}"
+DOCKER_IMAGE="${DOCKER_IMAGE:-heartsnn/heartsnn}"
 
 # Allow Docker volumes used for building to be specified via env var.
-BUILDS_VOLUME=${BUILDS_VOLUME:-heartsbuilds}
+BUILDS_VOLUME=${BUILDS_VOLUME:-heartsnn-builds}
 
 # To run GDB from macOS, we need to use privileged mode a certain way.
 if (($privileged))
