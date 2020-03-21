@@ -6,6 +6,8 @@ RUN git clone --depth=1 \
     https://github.com/jimlloyd/HeartsNN.git \
     /heartsnn
 
+RUN apt-get -y install libuv1-dev
+
 WORKDIR /heartsnn
 
 RUN chmod +x build-hearts.sh
