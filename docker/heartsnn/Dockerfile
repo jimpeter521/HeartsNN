@@ -1,12 +1,12 @@
 FROM heartsnn/build:latest
 
-RUN git clone --depth=1 \
+RUN apt-get -y install libuv1-dev
+
+RUN git clone \
     --branch=master \
     --recurse-submodules \
     https://github.com/jimlloyd/HeartsNN.git \
     /heartsnn
-
-RUN apt-get -y install libuv1-dev
 
 WORKDIR /heartsnn
 
