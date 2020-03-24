@@ -16,10 +16,10 @@ build-image "tf-protobuf-grpc"
 build-image "build"
 
 # This is the true base docker image, the only one needed if for generating data and building models
-# docker build --no-cache -t heartsnn/heartsnn docker/heartsnn
-build-image "heartsnn"
+docker build --no-cache -t heartsnn/heartsnn docker/heartsnn
+# build-image "heartsnn"
 
 # In the future there will be more docker images and some docker-compose scripts
 # for doing multiple rounds of reinforcement learning, and for playing hearts using the build models
 
-build-image "generation-0"
+# build-image "generation-0"
