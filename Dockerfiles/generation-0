@@ -1,0 +1,7 @@
+FROM heartsnn/heartsnn:latest
+
+# The numeric argument to the `hearts` app is the number of simulated games to play.
+# We'd like this to be an environment variable so that it is easy to run a larger dataset.
+RUN hearts ${num_games:-5000}
+RUN python/merge_datasets.py
+RUN python/train.py
