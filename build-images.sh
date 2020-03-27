@@ -1,7 +1,11 @@
 #!/bin/bash
 
 function build-image {
-    docker build -t heartsnn/$1 docker/$1
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    NO_CACHE=$2
+    echo "-------"
+    echo "Building heartsnn/$1 ${NO_CACHE}"
+    docker build ${NO_CACHE} -t -f docker/$1 .
 }
 
 # Everything starts with this image from the awesome floopcz/tensorflow project https://github.com/FloopCZ/tensorflow_cc
@@ -13,11 +17,10 @@ function build-image {
 # They are primarily useful to anyone who wants to enhance the heartsnn project in any way.
 build-image "tf-protobuf"
 build-image "tf-protobuf-grpc"
-build-image "build"
+build-image "build"  "--no-cache"
 
 # This is the true base docker image, the only one needed if for generating data and building models
-docker build --no-cache -t heartsnn/heartsnn docker/heartsnn
-# build-image "heartsnn"
+build-image "heartsnn" "--no-cache"
 
 # In the future there will be more docker images and some docker-compose scripts
 # for doing multiple rounds of reinforcement learning, and for playing hearts using the build models
