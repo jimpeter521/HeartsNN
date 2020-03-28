@@ -29,12 +29,11 @@ function build-image {
     NO_CACHE=$2
     echo "-------"
     echo "Building heartsnn/$1 ${NO_CACHE}"
-    docker build ${NO_CACHE} -t heartsnn/$1:${TAG},heartsnn/$1:latest -f Dockerfiles/$1 https://github.com/jimlloyd/HeartsNN.git#${BRANCH}
+    docker build ${NO_CACHE} -t heartsnn/$1:${TAG} -t heartsnn/$1 -f Dockerfiles/$1 https://github.com/jimlloyd/HeartsNN.git#${BRANCH}
 
     if [[ "${TAG}" =~ ${pattern} ]]
     then
         docker push heartsnn/$1:${TAG}
-        docker push heartsnn/$1:latest
     fi
 }
 
