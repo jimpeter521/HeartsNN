@@ -3,38 +3,9 @@
 #pragma once
 
 #include "lib/Card.h"
+#include "lib/CardArray.h"
 
 namespace visible {
-
-struct Card
-{
-    Card(Nib r, Nib s) : rank{r}, suit{s} {}
-
-    Card() = delete;
-    ~Card() = default;
-
-    Card(const Card&) = default;
-    Card(Card&&) = default;
-    Card& operator=(const Card&) = delete;
-    Card& operator=(Card&&) = delete;
-
-    static constexpr Nib kRanks{13};
-
-    static Card make(Ord ordinal)
-    {
-        Nib rank = ordinal % kRanks;
-        Nib suit = ordinal / kRanks;
-        return Card{rank, suit};
-    }
-
-    Ord ord() const { return suit*kRanks + rank; }
-
-    const Nib rank;
-    const Nib suit;
-};
-
-using OptionalCard = std::optional<Card>;
-using OptionalOrd = std::optional<Ord>;
 
 class VisibleState
 {
@@ -47,36 +18,58 @@ public:
         EAST = 3,
     };
 
+    using Plays = std::array<Card, 4>;
+
+    // see below for public accessors
+
     class Builder
     {
     public:
         Builder() = default;
 
-        Builder& add(Card card) { mHand.insert(card.ord()); return *this; }
+        Builder& add(Card card) { mHand.Insert(card); return *this; }
 
-        Builder& south(Card card) { mTrickPlays[SOUTH] = std::make_optional<Ord>(card.ord()); return *this; }
-        Builder& west(Card card) { mTrickPlays[WEST] = std::make_optional<Ord>(card.ord()); return *this; }
-        Builder& north(Card card) { mTrickPlays[NORTH] = std::make_optional<Ord>(card.ord()); return *this; }
-        Builder& east(Card card) { mTrickPlays[EAST] = std::make_optional<Ord>(card.ord()); return *this; }
+        Builder& add(const CardArray& cards)
+        {
+            CardHand::iterator it(cards);
+            while (!it.done()) { add(it.next()); }
+            return *this;
+        }
+
+        Builder& south(Card card) { mPlays[SOUTH] = card; return *this; }
+        Builder& west(Card card) { mPlays[WEST] = card; return *this; }
+        Builder& north(Card card) { mPlays[NORTH] = card; return *this; }
+        Builder& east(Card card) { mPlays[EAST] = card; return *this; }
+
+        Builder& played(int player, Card card) { mPlays[player] = card; return *this; }
 
         VisibleState build() const { return VisibleState(*this); }
 
     private:
         friend class VisibleState;
-        std::set<Ord> mHand;
-        std::array<OptionalOrd, 4> mTrickPlays;
+        CardHand mHand;
+        Plays mPlays{kNoCard, kNoCard, kNoCard, kNoCard};
     };
 
 private:
     VisibleState() = delete;
-    VisibleState(const Builder& builder) : mHand(builder.mHand.begin(), builder.mHand.end()), mTrickPlays(builder.mTrickPlays) {}
+    VisibleState(const Builder& builder) : mHand(builder.mHand), mPlays(builder.mPlays) {}
 
 private:
     // The cards in the human player's hand, always in the South seat
-    const std::vector<Ord> mHand;
+    const CardHand mHand;
 
     // The cards played so far in this trick
-    const std::array<OptionalOrd, 4> mTrickPlays;
+    const Plays mPlays;
+
+public:
+
+    const CardHand hand() const { return mHand; }
+    const Plays plays() const { return mPlays; }
+    const Card south() const { return mPlays[SOUTH]; }
+    const Card west() const { return mPlays[WEST]; }
+    const Card north() const { return mPlays[NORTH]; }
+    const Card east() const { return mPlays[EAST]; }
 };
 
 } // namespace visible

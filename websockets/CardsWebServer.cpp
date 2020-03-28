@@ -131,8 +131,8 @@ void CardsWebServer::Impl::launch(const std::string& root, int port)
 
             const auto command = message[0];
             assert(command == CARDCLICKED);
-            const auto card = visible::Card::make(message[1]);
-            std::cout << "Human clicked on card rank:" << card.rank << " suit:" << card.suit << '\n';
+            const auto card = message[1];
+            std::cout << "Human clicked on card rank:" << NameOf(card) << '\n';
         },
         .drain = [](auto *ws) {
             /* Check ws->getBufferedAmount() here */

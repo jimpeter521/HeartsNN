@@ -1,7 +1,7 @@
 add_subdirectory(uWebSockets)
 
 add_executable(webSocketServer webSocketServer.cpp CardsWebServer.cpp)
-target_link_libraries(webSocketServer uWebSockets stdc++fs pthread)
+target_link_libraries(webSocketServer uWebSockets stdc++fs core_lib pthread)
 
 # TODO: use OPTIONs
 target_compile_definitions(webSocketServer PUBLIC LIBUS_NO_SSL)
