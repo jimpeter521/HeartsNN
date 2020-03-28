@@ -1,0 +1,4 @@
+FROM heartsnn/generation-0:latest
+
+EXPOSE 3001/tcp
+ENTRYPOINT ["webSocketServer", "/heartsnn/websockets-cards/public"]

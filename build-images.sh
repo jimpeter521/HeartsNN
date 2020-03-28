@@ -56,3 +56,5 @@ build-image "heartsnn"
 # for doing multiple rounds of reinforcement learning, and for playing hearts using the build models
 
 build-image "generation-0"
+
+build-image "websocketserver"
