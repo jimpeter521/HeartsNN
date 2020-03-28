@@ -7,7 +7,6 @@ WORKDIR /heartsnn
 
 ENV PATH="/heartsnn/devbin:${PATH}"
 
-RUN rm -rf /heartsnn/builds
 RUN /heartsnn/devbin/bld release all
 
 RUN cp /heartsnn/builds/release/apps/analyze /usr/local/bin/
@@ -22,5 +21,3 @@ RUN python3 setup.py install
 
 WORKDIR /heartsnn
 CMD /heartsnn/devbin/bld release all_tests
-
-# RUN rm -rf /heartsnn/builds
