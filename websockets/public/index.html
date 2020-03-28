@@ -1,0 +1,304 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!--
+ * Example HTML for CSS Playing Cards
+ *
+ * @author   Anika Henke <anika@selfthinker.org>
+ * @license  CC BY-SA [http://creativecommons.org/licenses/by-sa/3.0]
+ * @version  2011-06-14
+ * @link     http://selfthinker.github.com/CSS-Playing-Cards/
+-->
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <title>Hearts via webSockets</title>
+    <link rel="stylesheet" type="text/css" href="css/cards.css" media="screen" />
+    <!-- the following js and css is not part of the CSS cards, but only for this example page -->
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script type="text/javascript"><!--
+    //--></script>
+    <style type="text/css"><!--
+        body {
+            margin: 10px;
+        }
+
+.nwfill {
+    grid-column-start: 1;
+    grid-column-end: 2;
+    grid-row-start: 1;
+    grid-row-end: 2;
+}
+
+.north {
+    grid-column-start: 2;
+    grid-column-end: 3;
+    grid-row-start: 1;
+    grid-row-end: 2;
+    text-align: center
+}
+
+.nefill {
+    grid-column-start: 3;
+    grid-column-end: 4;
+    grid-row-start: 1;
+    grid-row-end: 2;
+}
+
+.west {
+    grid-column-start: 1;
+    grid-column-end: 2;
+    grid-row-start: 2;
+    grid-row-end: 3;
+    margin: 0 auto;
+}
+
+#played {
+    grid-column-start: 2;
+    grid-column-end: 3;
+    grid-row-start: 2;
+    grid-row-end: 3;
+    margin: 0 auto;
+}
+
+.east {
+    grid-column-start: 3;
+    grid-column-end: 4;
+    grid-row-start: 2;
+    grid-row-end: 3;
+    margin: 0 auto;
+}
+
+#south {
+    grid-column-start: 1;
+    grid-column-end: 4;
+    grid-row-start: 3;
+    grid-row-end: 4;
+    margin: 0 auto;
+}
+
+
+#hand {
+    grid-column-start: 1;
+    grid-column-end: 4;
+    grid-row-start: 4;
+    grid-row-end: 5;
+    margin: 0 auto;
+}
+
+.frame {
+    display: grid;
+    grid-gap: 10px;
+    grid-template-rows: repeat(4, 1fr);
+    grid-template-columns: 1fr 2fr 1fr;
+    background-color: #fff;
+    color: #444;
+}
+
+    --></style>
+</head>
+<body>
+
+<div class="frame">
+
+    <!-- The card North has played for the current trick. -->
+    <!-- Empty when North is waiting for her turn. -->
+    <div class="play north" id="north">
+        <div class="playingCards fourColours">
+            <a class="card rank-q hearts" href="#">
+                <span class="rank">Q</span>
+                <span class="suit">&hearts;</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- The card West has played for the current trick. -->
+    <!-- Empty when West is waiting for her turn. -->
+    <div class="play west" id="west">
+        <div class="playingCards fourColours">
+            <a class="card rank-q hearts" href="#">
+                <span class="rank">J</span>
+                <span class="suit">&hearts;</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- The card East has played for the current trick. -->
+    <!-- Empty when East is waiting for her turn. -->
+    <div class="play east" id="east">
+        <div class="playingCards fourColours">
+            <a class="card rank-q hearts" href="#">
+                <span class="rank">K</span>
+                <span class="suit">&hearts;</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- The card South (i.e. the human player) has played for the current trick. -->
+    <!-- Empty when South is waiting for her turn. -->
+    <div class="play south" id="south">
+        <div class="playingCards fourColours">
+            <a class="card rank-q hearts" href="#">
+                <span class="rank">A</span>
+                <span class="suit">&hearts;</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- All the cards still in the human player's hand, which are implicitly only visible to her. -->
+    <!-- When it is the human's players turn, she may click on one card to play it. -->
+    <div id="hand">
+        <div class="playingCards fourColours">
+            <ul class="table"></ul>
+        </div>
+    </div>
+
+</div>
+
+<script>
+
+    const COMMANDS =
+    {
+        DEALCARD: 0,
+            // we only "deal" cards into the human's hand. This UI application never sees the cards in other player's hands until played.
+            // A deal-card command is therefore needs just two bytes: this command code and a card code.
+        PLAYCARD: 1,
+            // This command is used to show what a player has just played for the current trick.
+            // This UI application is mostly stateless, and specifically does not know whose turn it is to play.
+            // A play-card command is therefore three bytes: this code, a card, and a SEAT code.
+        CLEARTRICK: 2,
+            // This command is used to remove the card currently present at each of the four seats.
+            // It is a one-byte message
+        CARDCLICKED: 3,
+            // This command is sent from the browser to the server when the human clicks on an active card.
+            // The message is two bytes: this command code and a card byte
+    };
+
+    const SEATS =
+    {
+        SOUTH: 0,
+        WEST: 1,
+        NORTH: 2,
+        EAST: 3,
+    };
+
+    const seatNames = ['south', 'west', 'north', 'east'];
+    const suitNames = ['clubs', 'diams', 'spades', 'hearts'];
+    const suitGlyphs = ['&clubs;', '&diams;', '&spades;', '&hearts;']
+    const rankNames = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+
+    function asRankSuit(card)
+    {
+        const rank = card % 13;
+        const suit = Math.floor(card / 13);
+        console.log('asRankSuit:', {card, rank, suit});
+        return {rank, suit};
+    }
+
+    function asCard({rank, suit})
+    {
+        return suit*13 + rank;
+    }
+
+    function onCardClick({rank, suit})
+    {
+        console.log('click', {rank, suit});
+
+        socket.send(Uint8Array.of(COMMANDS.CARDCLICKED, asCard({rank, suit})));
+
+        const R = rankNames[rank];
+        const S = suitNames[suit];
+
+        const hand = $('#hand');
+        console.log('hand', hand.length);
+        const selector = `.card.rank-${R.toLowerCase()}.${S}`;    //
+        console.log(selector);
+        const card = hand.find(selector);
+        console.log('card', card.length);
+        card.remove();
+    }
+
+    function cardAsHtml({rank, suit, active})
+    {
+        console.log('cardAsHtml:', {rank, suit, active});
+        const R = rankNames[rank];
+        const S = suitNames[suit];
+        const G = `&${S};`;
+        const href = !active ? '' : `href="javascript:onCardClick({rank: ${rank},suit: ${suit}})"`;
+        return `<a class="card rank-${R.toLowerCase()} ${S}" ${href}"><span class="rank">${R}</span><span class="suit">${G}</span></a>`;
+    }
+
+    function cardAsListItem({rank, suit, active})
+    {
+        const html = cardAsHtml({rank, suit, active});
+        return `<li>${html}</li>`;
+    }
+
+    function clearPlay({seat})
+    {
+        let place = $(`#${seatNames[seat]}`);
+        let spot = place.find('div.playingCards');
+        spot.empty();
+    }
+
+    // Show this card face up on the table at the give seat -- it is the player's play for the current trick
+    function playCard({card, seat})
+    {
+        // cards played into the trick are never active (clickable)
+        const active = false;
+        let place = $(`#${seatNames[seat]}`);
+        let spot = place.find('div.playingCards');
+        const {rank, suit} = asRankSuit(card);
+        spot.html(cardAsHtml({rank, suit, active}));
+    }
+
+    // Deal this card into the human player's hand, placing it face up so the human knows what cards she has.
+    function dealCard({card, active})
+    {
+        let hand = $('#hand').find('ul');
+        const {rank, suit} = asRankSuit(card);
+        hand.append(cardAsListItem({rank, suit, active}));
+    }
+
+    function dispatchMessage(message)
+    {
+        console.log(message);
+
+        // message is an ArrayBuffer.
+        const data = new Uint8Array(message.data);
+        const command = data[0];
+
+        if (command == COMMANDS.DEALCARD)
+        {
+            const active = 1; // For now, all cards are active
+            const [_, card] = data;
+            console.log('dealCard:', {command, card, active});
+            dealCard({card, active});
+        }
+        else if (command == COMMANDS.PLAYCARD)
+        {
+            const [_, card, seat] = data;
+            console.log('playCard:', {command, card, seat});
+            playCard({card, seat});
+        }
+        else if (command == COMMANDS.CLEARTRICK)
+        {
+            console.log('clearTrick:', {command});
+            clearPlay({seat: SEATS.SOUTH});
+            clearPlay({seat: SEATS.WEST});
+            clearPlay({seat: SEATS.NORTH});
+            clearPlay({seat: SEATS.EAST});
+        }
+    }
+
+    // establish a connection to the server
+    const socket = new WebSocket('ws://localhost:3001/');
+    socket.binaryType = 'arraybuffer';
+
+    // We don't need onopen() because this browser application doesn't initiate any actions on startup
+    // The only time the application sends a message is when the user clicks on a card in their hand to play it
+    // socket.onopen = () => {};
+
+    socket.onmessage = message => dispatchMessage(message);
+</script>
+</body>
+</html>
