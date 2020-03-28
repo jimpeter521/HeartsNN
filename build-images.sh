@@ -20,12 +20,22 @@ else
     exit 1
 fi
 
+shopt -s extglob
+TAG=$(git describe)
+pattern='^v[0-9]\.[0-9](\.[0-9])?$'
+
 function build-image {
     BRANCH=$(git rev-parse --abbrev-ref HEAD)
     NO_CACHE=$2
     echo "-------"
     echo "Building heartsnn/$1 ${NO_CACHE}"
-    docker build ${NO_CACHE} -t heartsnn/$1 -f Dockerfiles/$1 https://github.com/jimlloyd/HeartsNN.git#${BRANCH}
+    docker build ${NO_CACHE} -t heartsnn/$1:${TAG} -f Dockerfiles/$1 https://github.com/jimlloyd/HeartsNN.git#${BRANCH}
+
+    if [[ "${TAG}" =~ ${pattern} ]]
+    then
+        docker push heartsnn/$1:${TAG}
+    fi
+
 }
 
 # Everything starts with this image from the awesome floopcz/tensorflow project https://github.com/FloopCZ/tensorflow_cc
