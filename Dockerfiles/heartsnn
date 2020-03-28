@@ -7,8 +7,8 @@ WORKDIR /heartsnn
 
 ENV PATH="/heartsnn/devbin:${PATH}"
 
-CMD rm -rf /heartsnn/builds
-CMD /heartsnn/devbin/bld release all
+RUN rm -rf /heartsnn/builds
+RUN /heartsnn/devbin/bld release all
 
 RUN cp /heartsnn/builds/release/apps/analyze /usr/local/bin/
 RUN cp /heartsnn/builds/release/apps/deal /usr/local/bin/
