@@ -7,3 +7,6 @@
 [submodule "websockets-cards"]
 	path = websockets-cards
 	url = https://github.com/jimlloyd/websockets-cards.git
+[submodule "websockets/uWebSockets"]
+	path = websockets/uWebSockets
+	url = https://github.com/jimlloyd/uWebSockets.git
