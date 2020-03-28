@@ -1,4 +1,5 @@
 #include "websockets/CardsWebServer.hpp"
+#include "lib/VisibleState.hpp"
 
 #include <App.h>
 
@@ -10,6 +11,8 @@
 #include <random>
 
 namespace cardsws {
+
+using namespace visible;
 
 struct CardsWebServer::Impl : public uWS::App
 {
@@ -128,7 +131,7 @@ void CardsWebServer::Impl::launch(const std::string& root, int port)
 
             const auto command = message[0];
             assert(command == CARDCLICKED);
-            const auto card = Card::make(message[1]);
+            const auto card = visible::Card::make(message[1]);
             std::cout << "Human clicked on card rank:" << card.rank << " suit:" << card.suit << '\n';
         },
         .drain = [](auto *ws) {
