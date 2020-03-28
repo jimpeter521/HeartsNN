@@ -6,7 +6,7 @@ then
     echo "The working tree is clean and up to date with origin"
 else
     echo "Can't build in dirty working tree. Must be up to date with origin."
-    # exit 1
+    exit 1
 fi
 
 LOCALBRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -17,7 +17,7 @@ then
     echo "All is well"
 else
     echo "The local branch is not identical to the tracking branch"
-    # exit 1
+    exit 1
 fi
 
 shopt -s extglob
@@ -29,11 +29,11 @@ function build-image {
     NO_CACHE=$2
     echo "-------"
     echo "Building heartsnn/$1 ${NO_CACHE}"
-    echo docker build ${NO_CACHE} -t heartsnn/$1:${TAG} -f Dockerfiles/$1 https://github.com/jimlloyd/HeartsNN.git#${BRANCH}
+    docker build ${NO_CACHE} -t heartsnn/$1:${TAG} -f Dockerfiles/$1 https://github.com/jimlloyd/HeartsNN.git#${BRANCH}
 
     if [[ "${TAG}" =~ ${pattern} ]]
     then
-        echo docker push heartsnn/$1:${TAG}
+        docker push heartsnn/$1:${TAG}
     fi
 
 }
