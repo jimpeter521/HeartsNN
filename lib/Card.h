@@ -2,13 +2,16 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <array>
+#include <cstdint>
 
-typedef uint8_t Card;
-typedef uint8_t Rank;
-typedef uint8_t Suit;
+using Nib = std::int8_t;   // We only need 4 bits, but we use 8. For representing Rank and Suit.
+using Ord = std::uint8_t;  // We only need 6 bits, but we use 8. For values 0..51.
 
-enum Suits
+// We represent one card as an unsigned integer in the range 0..51
+using Card = Ord;
+
+enum Suits : Nib
 {
     kClubs = 0u,
     kDiamonds,
@@ -18,7 +21,10 @@ enum Suits
     kUnknown = 99u
 };
 
-enum Ranks
+using Suit = Suits;
+constexpr auto allSuits = std::array<Suit, 4>{kClubs, kDiamonds, kSpades, kHearts};
+
+enum Ranks : Nib
 {
     kTwo = 0u,
     kThree,
@@ -35,15 +41,17 @@ enum Ranks
     kAce
 };
 
-const uint8_t kSuitsPerDeck = 4u;
-const uint8_t kCardsPerSuit = 13u;
-const uint8_t kCardsPerHand = 13u;
-const uint8_t kCardsPerDeck = kSuitsPerDeck * kCardsPerSuit;
+using Rank = Ranks;
+
+const unsigned kSuitsPerDeck = 4u;
+const unsigned kCardsPerSuit = 13u;
+const unsigned kCardsPerHand = 13u;
+const unsigned kCardsPerDeck = kSuitsPerDeck * kCardsPerSuit;
 const unsigned kNumPlayers = 4u;
 const unsigned kMaxPointsPerHand = 26u;
 
-inline Suit SuitOf(Card card) { return card / kCardsPerSuit; }
-inline Rank RankOf(Card card) { return card % kCardsPerSuit; }
+inline Suit SuitOf(Card card) { return Suit(card / kCardsPerSuit); }
+inline Rank RankOf(Card card) { return Rank(card % kCardsPerSuit); }
 inline Card CardFor(Rank rank, Suit suit) { return suit * kCardsPerSuit + rank; }
 
 inline Card TheQueen() { return CardFor(kQueen, kSpades); }

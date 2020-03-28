@@ -109,7 +109,7 @@ void KnowableState::AsProbabilities(float prob[52][4]) const
   VoidBits voids =  IsVoidBits().ForOthers(current);
 
   float suitProb[4] = {0};
-  for (Suit suit=0; suit<4; ++suit) {
+  for (Suit suit : allSuits) {
     unsigned remaining = unknown.CountCardsWithSuit(suit);
     if (remaining == 0) {
       suitProb[suit] = 0.0;

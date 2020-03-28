@@ -15,7 +15,7 @@ ClientPlayer::ClientPlayer(ServerReaderWriter<ServerMessage, ClientMessage>* str
     : mStream(stream)
 {}
 
-Card fromProtocolCard(const playhearts::Card& protoCard) { return CardFor(protoCard.rank(), protoCard.suit()); }
+Card fromProtocolCard(const playhearts::Card& protoCard) { return CardFor(Rank(protoCard.rank()), Suit(protoCard.suit())); }
 
 void setProtocolCard(playhearts::Card* protoCard, Card c)
 {
@@ -83,7 +83,7 @@ Card ClientPlayer::receiveMyPlay() const
   const MyPlay& myPlay = clientMessage.myplay();
   const playhearts::Card card = myPlay.card();
 
-  Card play = CardFor(card.rank(), card.suit());
+  Card play = CardFor(Rank(card.rank()), Suit(card.suit()));
   std::cout << "Received play" << NameOf(play) << std::endl;
 
   return play;

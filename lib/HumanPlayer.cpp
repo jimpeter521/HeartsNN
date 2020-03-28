@@ -29,7 +29,7 @@ Card getCardInput(const KnowableState& state)
 
         Rank rank;
         if (rankChar >= '2' && rankChar <= '9')
-            rank = rankChar - '2';
+            rank = Rank(rankChar - '2');
         else if (rankChar == 'T')
             rank = kTen;
         else if (rankChar == 'J')

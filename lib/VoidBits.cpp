@@ -16,7 +16,7 @@ PriorityList VoidBits::MakePriorityList(int currentPlayer, const CardDeck& unkno
 {
   VoidBits others = ForOthers(currentPlayer);
   PriorityList prioList;
-  for (Suit suit=0; suit<4; ++suit) {
+  for (Suit suit : allSuits) {
     if (unknownCardsRemaining.CountCardsWithSuit(suit) == 0) {
       prioList.push_back(SuitVoids(suit, 3));
     } else {
@@ -43,7 +43,8 @@ void VoidBits::VerifyVoids(const CardHands& hands) const {
 #ifndef NDEBUG
   for (int p=0; p<4; ++p) {
     const CardHand& hand = hands[p];
-    for (int suit=0; suit<4; ++suit) {
+    for (int s=0; s<4; ++s) {
+      auto suit = Suit(s);
       if (isVoid(p, suit)) {
         assert(hand.CountCardsWithSuit(suit) == 0);
       }

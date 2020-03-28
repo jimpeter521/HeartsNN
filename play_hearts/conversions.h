@@ -8,7 +8,7 @@
 
 inline ::Card fromProtocolCard(const playhearts::Card& protoCard)
 {
-  return CardFor(protoCard.rank(), protoCard.suit());
+  return CardFor(Rank(protoCard.rank()), Suit(protoCard.suit()));
 }
 
 inline void setProtocolCard(playhearts::Card* protoCard, ::Card c)
