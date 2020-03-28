@@ -1,4 +1,4 @@
-FROM heartsnn/tf-protobuf:latest
+FROM heartsnn/tf-protobuf
 
 WORKDIR /tmp
 RUN git clone https://github.com/grpc/grpc.git
@@ -49,3 +49,5 @@ RUN cmake -DCMAKE_INSTALL_PREFIX=/usr/local \
 RUN make -j4 install
 
 RUN rm -rf /tmp/grpc
+
+RUN pip3 install --user tensorflow==1.13.2

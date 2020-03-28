@@ -12,9 +12,6 @@ gitRoot=$(_gitRoot)
 # Run in the Docker image optimized for the dev cycle, or the image specified by DOCKER_IMAGE.
 DOCKER_IMAGE="${DOCKER_IMAGE:-heartsnn/heartsnn}"
 
-# Allow Docker volumes used for building to be specified via env var.
-BUILDS_VOLUME=${BUILDS_VOLUME:-heartsnn-builds}
-
 # By default, run interactive Bash, but allow any non-interactive command to be specified instead.
 if [[ "$1" == "" ]]
 then
@@ -29,7 +26,7 @@ fi
 JOBS=${JOBS:-2}
 
 # Point to the Docker volume for build artifacts.
-BUILD_ROOT="${gitRoot}/builds/volume"
+BUILD_ROOT="${gitRoot}/builds"
 
 # Pass through certain env vars, including ones that we set above.
 passthru=(BUILD_ROOT CTEST_OUTPUT_ON_FAILURE DEBUG JOBS)
@@ -47,7 +44,6 @@ done
 
 echo "gitRoot: ${gitRoot}"
 echo "BUILD_ROOT: ${BUILD_ROOT}"
-echo "BUILDS_VOLUME: ${BUILDS_VOLUME}"
 echo "DOCKER_IMAGE: ${DOCKER_IMAGE}"
 
 cwd=$(pwd -P); docker run --tty --rm \
@@ -55,9 +51,7 @@ cwd=$(pwd -P); docker run --tty --rm \
        ${DOCKER_ARGS} \
        "${run_args[@]}" \
        "${env_args[@]}" \
-       --volume "${BUILDS_VOLUME}":"${BUILD_ROOT}" \
        --volume "$gitRoot:$gitRoot" \
-       --volume "$gitRoot/devbin":/vol/devbin \
        --workdir ${gitRoot} \
        "$DOCKER_IMAGE" \
        "${args[@]}"
