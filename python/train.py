@@ -16,6 +16,10 @@ from learning_rate_hook import LearningRateHook
 
 ROOT_MODEL_DIR = './model_dir'
 
+def log(*args):
+    """Convenient shorthand to log to stderr. stderr is preferred because stdout is buffered."""
+    print(*args, file=sys.stderr)
+
 class IteratorInitializerHook(tf.train.SessionRunHook):
     """Hook to initialise data iterator after Session is created."""
 
@@ -51,7 +55,7 @@ def load_memmaps(dirPath):
     assert len(moonProbData) == nsamples
 
     if nsamples > MAX_OBS:
-        print('Truncating dataset {} from {} to {}', dirPath, nsamples, MAX_OBS)
+        log('Truncating dataset {} from {} to {}', dirPath, nsamples, MAX_OBS)
         nsamples = MAX_OBS
         mainData = mainData[:MAX_OBS]
         scoresData = scoresData[:MAX_OBS]
@@ -64,7 +68,7 @@ def load_memmaps(dirPath):
     scoresData = scoresData * (MODEL_SCORE_MAX / PREDICTION_SCORE_MAX)
     assert np.max(scoresData) <= MODEL_SCORE_MAX
 
-    print('Loaded {} samples'.format(nsamples))
+    log('Loaded {} samples'.format(nsamples))
 
     return mainData, scoresData, winTrickProbs, moonProbData
 
@@ -127,7 +131,7 @@ def save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn):
     export_dir_base = model_dir_path + '/savedmodel'
     os.makedirs(export_dir_base, exist_ok=True)
     checkpoint = estimator.latest_checkpoint()
-    print('Saving checkpoint:', checkpoint, file=sys.stderr)
+    log('Saving checkpoint:', checkpoint)
     estimator.export_savedmodel(export_dir_base, serving_input_receiver_fn, checkpoint_path=checkpoint)
 
 def train_with_params(train_memmaps, eval_memmaps, params, serving_input_receiver_fn=None):
@@ -176,12 +180,12 @@ def train_with_params(train_memmaps, eval_memmaps, params, serving_input_receive
             best_eval_loss = eval_loss
             best_eval = evaluation
             save_checkpoint(estimator, model_dir_path, serving_input_receiver_fn)
-            print("New best eval loss:", best_eval_loss)
+            log("New best eval loss:", best_eval_loss)
         elif backsteps >= 5:
             break
         else:
             backsteps += 1
-            print("Backstep {}: Current loss {} is worse that prior best loss {}".format(backsteps, eval_loss, best_eval_loss))
+            log("Backstep {}: Current loss {} is worse that prior best loss {}".format(backsteps, eval_loss, best_eval_loss))
 
     return best_eval
 
@@ -201,7 +205,7 @@ if __name__ == '__main__':
     eval_memmaps = load_memmaps(eval_dir)
 
     if len(train_memmaps[0]) > len(eval_memmaps[0]):
-        print('Swapping training and eval so that eval is the larger dataset')
+        log('Swapping training and eval so that eval is the larger dataset')
         train_memmaps, eval_memmaps = eval_memmaps, train_memmaps
     assert len(train_memmaps[0]) <= len(eval_memmaps[0])
 
@@ -212,7 +216,7 @@ if __name__ == '__main__':
 
     num_batches = (len(eval_memmaps[0]) + BATCH - 1) // BATCH
     threshold = num_batches*5
-    print('num_batches, threshold:', num_batches, threshold)
+    log('num_batches, threshold:', num_batches, threshold)
 
     evals = {}
     for hidden_depth in [1]:
@@ -229,4 +233,4 @@ if __name__ == '__main__':
                 evals['d{}w{}_{}'.format(hidden_depth, hidden_width, activation)] = results
 
     for k, v in evals.items():
-        print(v, k, file=sys.stderr)
+        log(v, k)
