@@ -27,10 +27,9 @@ TAG=$(git describe)
 pattern='^v[0-9]\.[0-9](\.[0-9]+)?$'
 
 function build-image {
-    BRANCH=$(git rev-parse --abbrev-ref HEAD)
     echo "-------"
     echo "Building heartsnn/$1 ${NO_CACHE}"
-    docker build ${NO_CACHE} -t heartsnn/$1:${TAG} -t heartsnn/$1 -f Dockerfiles/$1 https://github.com/jimlloyd/HeartsNN.git#${BRANCH}
+    docker build ${NO_CACHE} -t heartsnn/$1:${TAG} -t heartsnn/$1 -f Dockerfiles/$1 https://github.com/jimlloyd/HeartsNN.git#${TAG}
 
     if [[ "${TAG}" =~ ${pattern} ]]
     then
