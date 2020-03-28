@@ -1,4 +1,4 @@
-FROM heartsnn/build:latest
+FROM heartsnn/build
 
 RUN apt-get -y install libuv1-dev
 
