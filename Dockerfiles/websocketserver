@@ -1,4 +1,4 @@
-FROM heartsnn/generation-0:latest
+FROM heartsnn/generation-0
 
 EXPOSE 3001/tcp
 ENTRYPOINT ["webSocketServer", "/heartsnn/websockets-cards/public"]

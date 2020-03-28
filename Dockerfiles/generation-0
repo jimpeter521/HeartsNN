@@ -1,4 +1,4 @@
-FROM heartsnn/heartsnn:latest
+FROM heartsnn/heartsnn
 
 # The numeric argument to the `hearts` app is the number of simulated games to play.
 # We'd like this to be an environment variable so that it is easy to run a larger dataset.
