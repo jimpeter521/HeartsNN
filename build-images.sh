@@ -24,7 +24,7 @@ fi
 
 shopt -s extglob
 TAG=$(git describe)
-pattern='^v[0-9]\.[0-9](\.[0-9])?$'
+pattern='^v[0-9]\.[0-9](\.[0-9]+)?$'
 
 function build-image {
     BRANCH=$(git rev-parse --abbrev-ref HEAD)
