@@ -1,4 +1,4 @@
-FROM heartsnn/build
+FROM heartsnn/tf-protobuf-grpc
 
 RUN apt-get -y install libuv1-dev
 

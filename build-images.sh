@@ -1,5 +1,7 @@
 #!/bin/bash
 
+NO_CACHE=$1
+
 git fetch
 if [[ -z $(git status -uno -s) ]]
 then
@@ -26,7 +28,6 @@ pattern='^v[0-9]\.[0-9](\.[0-9])?$'
 
 function build-image {
     BRANCH=$(git rev-parse --abbrev-ref HEAD)
-    NO_CACHE=$2
     echo "-------"
     echo "Building heartsnn/$1 ${NO_CACHE}"
     docker build ${NO_CACHE} -t heartsnn/$1:${TAG} -t heartsnn/$1 -f Dockerfiles/$1 https://github.com/jimlloyd/HeartsNN.git#${BRANCH}
@@ -42,18 +43,27 @@ function build-image {
 # docker pull floopcz/tensorflow_cc:ubuntu-shared
 # We don't really need to pull here, it will happen automatically when building tf-protobuf
 
-# These three images are intermediate layers build seprately to faciliate incremental builds.
-# They are primarily useful to anyone who wants to enhance the heartsnn project in any way.
+# These two images are intermediate layers build seprately to faciliate incremental builds.
+# HeartsNN depends on these components, and they do not depend on HeartsNN in any way.
 build-image "tf-protobuf"
 build-image "tf-protobuf-grpc"
-build-image "build"
 
 # This is the true base docker image, the only one needed if for generating data and building models
 build-image "heartsnn"
 
-# In the future there will be more docker images and some docker-compose scripts
-# for doing multiple rounds of reinforcement learning, and for playing hearts using the build models
-
+# This generation-0 container will run the zero-th generation of reinforcement learning.
+# The data generated for training and evalution is almost pure monte-carlo,
+# using whatever statistical regularities that can be inferred from many random "roll-outs".
 build-image "generation-0"
 
+# In the future there will be generation-1 .. generation-N for as many iterations of RL as
+# are practical and lead to improved play.
+# We have already done several iterations with earlier versions of this project that had good results.
+# The main development since then has been to convert to using Docker so that this project will be
+# easier to use by others.
+# Building these higher generation models is more computationally expensive.
+# We plan to use Kubernetes to make it possible to build those generations using a cluster of compute nodes.
+
+# This image is work-in-progress towards making it possible to play against HeartsNN using an
+# application in web browser.
 build-image "websocketserver"
