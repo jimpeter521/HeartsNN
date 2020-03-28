@@ -1,14 +1,13 @@
 #pragma once
 
+#include "lib/Card.h"
+
 #include <memory>
 #include <optional>
 #include <set>
 #include <vector>
 
 namespace cardsws {
-
-using Nib = std::int8_t;   // We only need 4 bits, but we use 8. For representing Rank and Suit.
-using Ord = std::uint8_t;  // We only need 6 bits, but we use 8. For values 0..51.
 
 struct Card
 {
@@ -40,17 +39,17 @@ struct Card
 using OptionalCard = std::optional<Card>;
 using OptionalOrd = std::optional<Ord>;
 
-enum Seats : char
-{
-    SOUTH = 0,
-    WEST = 1,
-    NORTH = 2,
-    EAST = 3,
-};
-
 class VisibleState
 {
 public:
+    enum Seats : char
+    {
+        SOUTH = 0,
+        WEST = 1,
+        NORTH = 2,
+        EAST = 3,
+    };
+
     class Builder
     {
     public:

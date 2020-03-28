@@ -95,10 +95,10 @@ void CardsWebServer::Impl::launch(const std::string& root, int port)
 
         void dummyTrick(Socket* ws)
         {
-            playCard(ws, mDeck[0], SOUTH); // play first card we dealt to human above
-            playCard(ws, mDeck[13], WEST);
-            playCard(ws, mDeck[14], NORTH);
-            playCard(ws, mDeck[15], EAST);
+            playCard(ws, mDeck[0], VisibleState::SOUTH); // play first card we dealt to human above
+            playCard(ws, mDeck[13], VisibleState::WEST);
+            playCard(ws, mDeck[14], VisibleState::NORTH);
+            playCard(ws, mDeck[15], VisibleState::EAST);
         }
 
         std::array<uint8_t, kCardsInDeck> mDeck;
