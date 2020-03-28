@@ -13,7 +13,7 @@ RUN cp /heartsnn/builds/release/apps/deal /usr/local/bin/
 RUN cp /heartsnn/builds/release/apps/hearts /usr/local/bin/
 RUN cp /heartsnn/builds/release/apps/tournament /usr/local/bin/
 RUN cp /heartsnn/builds/release/apps/validate /usr/local/bin/
-RUN cp /heartsnn/builds/release/websockets-cards/webSocketServer /usr/local/bin/
+RUN cp /heartsnn/builds/release/websockets/webSocketServer /usr/local/bin/
 
 WORKDIR dlib
 RUN python3 setup.py install
