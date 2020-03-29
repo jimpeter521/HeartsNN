@@ -1,6 +1,6 @@
 FROM heartsnn/tf-protobuf-grpc
 
-RUN apt-get -y install libuv1-dev
+RUN apt-get -y install libuv1-dev gdb ninja-build
 
 COPY . /heartsnn
 WORKDIR /heartsnn
