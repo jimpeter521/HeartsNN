@@ -46,6 +46,8 @@ echo "gitRoot: ${gitRoot}"
 echo "BUILD_ROOT: ${BUILD_ROOT}"
 echo "DOCKER_IMAGE: ${DOCKER_IMAGE}"
 
+# webSocketServer uses port 3001
+
 cwd=$(pwd -P); docker run --tty --rm \
        --cap-add=sys_nice \
        ${DOCKER_ARGS} \
@@ -53,5 +55,6 @@ cwd=$(pwd -P); docker run --tty --rm \
        "${env_args[@]}" \
        --volume "$gitRoot:$gitRoot" \
        --workdir ${gitRoot} \
+       --publish 3001:3001 \
        "$DOCKER_IMAGE" \
        "${args[@]}"
