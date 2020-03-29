@@ -1,6 +1,8 @@
 #include "websockets/CardsWebServer.hpp"
+#include "websockets/WebsocketPlayer.hpp"
 #include "lib/VisibleState.hpp"
 #include "lib/GameState.h"
+#include "lib/random.h"
 
 #include <App.h>
 
@@ -76,36 +78,83 @@ void CardsWebServer::Impl::launch(const std::string& root, int port)
 {
     AsyncFileStreamer asyncFileStreamer(root);
 
-    constexpr unsigned kCardsInDeck{52};
-
     struct PerSocketData
     {
         PerSocketData()
         {
+            const std::string opponentName{"random"};
+            StrategyPtr opponent = makePlayer(opponentName);
+            // StrategyPtr human(new WebsocketPlayer());
+            players[0] = opponent;
+            players[1] = players[2] = players[3] = opponent;
+
+            // gameState.SetPlayCardHook([this](int play, int player, Card card) {
+            //     // This hook will get called for every play
+
+            //     // ServerMessage serverMessage;
+            //     // playhearts::CardPlayed* cardPlayed = serverMessage.mutable_cardplayed();
+            //     // cardPlayed->set_playnumber(gameState.PlayNumber());
+            //     // cardPlayed->set_player(gameState.CurrentPlayer());
+            //     // setProtocolCard(cardPlayed->mutable_card(), card);
+            //     // this->mStream->Write(serverMessage);
+            // });
+
+            // gameState.SetTrickResultHook([this](int trickWinner, const std::array<unsigned, 4>& points) {
+            //     // This hook will get called at the end of every trick
+
+            //     // ServerMessage serverMessage;
+            //     // playhearts::TrickResult* trickResult = serverMessage.mutable_trickresult();
+            //     // trickResult->set_trickwinner(trickWinner);
+            //     // for (int i = 0; i < 4; i++)
+            //     // {
+            //     //     trickResult->add_points(points[i]);
+            //     // }
+            //     // this->mStream->Write(serverMessage);
+            // });
+
+            #if 0
+            assert(gameState.PlayNumber() == 0);
+            if (gameState.CurrentPlayer() == VisibleState::SOUTH)
+            {
+                gameState.AdvanceOnePlay(players, rng);
+            }
+            while (gameState.CurrentPlayer() != VisibleState::SOUTH)
+            {
+                assert(gameState.PlayNumber() < 8);
+                gameState.AdvanceOnePlay(players, rng);
+            }
+            #endif
         }
 
         static PerSocketData* data(Socket* ws) { return reinterpret_cast<PerSocketData*>(ws->getUserData()); }
 
-        void dealHand(Socket* ws)
+        void displayHand(Socket* ws)
         {
-            for (int i=0; i<13; i++)
-            {
-                dealCard(ws, gameState.HandForPlayer(VisibleState::SOUTH).NthCard(i));
+            auto visible = gameState.asVisibleState(VisibleState::SOUTH);
+            CardHand::iterator it(visible.hand());
+            while (!it.done()) {
+                dealCard(ws, it.next());
             }
         }
 
-        void dummyTrick(Socket* ws)
+        void displayTrick(Socket* ws)
         {
-            playCard(ws, gameState.HandForPlayer(VisibleState::SOUTH).FirstCard(), VisibleState::SOUTH); // play first card we dealt to human above
-            playCard(ws, gameState.HandForPlayer(VisibleState::WEST).FirstCard(), VisibleState::WEST);
-            playCard(ws, gameState.HandForPlayer(VisibleState::NORTH).FirstCard(), VisibleState::NORTH);
-            playCard(ws, gameState.HandForPlayer(VisibleState::EAST).FirstCard(), VisibleState::EAST);
+            auto visible = gameState.asVisibleState(VisibleState::SOUTH);
+            auto plays = visible.plays();
+            for (auto p=0; p<4; ++p)
+            {
+                if (plays[p] != kNoCard)
+                {
+                    playCard(ws, plays[p], p); // play first card we dealt to human above
+                }
+            }
         }
 
-        ;
+        RandomGenerator rng;
         uint128_t N{Deal::RandomDealIndex()};
         Deal deal{N};
         GameState gameState{deal};
+        StrategyPtr players[4];
     };
 
     // Serve HTTP
@@ -125,8 +174,8 @@ void CardsWebServer::Impl::launch(const std::string& root, int port)
         .open = [](auto *ws, auto *req) {
             /* Open event here, you may access ws->getUserData() which points to a PerSocketData struct */
             clearTrick(ws);
-            PerSocketData::data(ws)->dealHand(ws);
-            PerSocketData::data(ws)->dummyTrick(ws);
+            // PerSocketData::data(ws)->displayHand(ws);
+            // PerSocketData::data(ws)->displayTrick(ws);
         },
         .message = [](auto *ws, std::string_view message, uWS::OpCode opCode) {
 

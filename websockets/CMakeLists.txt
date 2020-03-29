@@ -1,6 +1,11 @@
 add_subdirectory(uWebSockets)
 
-add_executable(webSocketServer webSocketServer.cpp CardsWebServer.cpp)
+add_executable(webSocketServer
+    webSocketServer.cpp
+    CardsWebServer.cpp
+    WebsocketPlayer.cpp
+    )
+
 target_link_libraries(webSocketServer uWebSockets stdc++fs core_lib pthread)
 
 # TODO: use OPTIONs
