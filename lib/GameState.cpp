@@ -85,12 +85,9 @@ void GameState::VerifyGameState() const
 #endif
 }
 
-GameOutcome GameState::PlayGame(StrategyPtr players[4], const RandomGenerator& rng)
+void GameState::AdvanceOnePlay(StrategyPtr players[4], const RandomGenerator& rng)
 {
-  // We allow calling this method from a GameState in the middle of the game.
-  // so we intentionally do not set mNextPlay=0 for first iteration of loop here.
-  while (!Done())
-  {
+    assert(!Done());
     int i = CurrentPlayer();
     StrategyPtr player = players[i];
     AnnotatorPtr annotator = player->getAnnotator();
@@ -99,6 +96,15 @@ GameOutcome GameState::PlayGame(StrategyPtr players[4], const RandomGenerator& r
       annotator->OnGameStateBeforePlay(*this);
     }
     NextPlay(player, rng);
+}
+
+GameOutcome GameState::PlayGame(StrategyPtr players[4], const RandomGenerator& rng)
+{
+  // We allow calling this method from a GameState in the middle of the game.
+  // so we intentionally do not set mNextPlay=0 for first iteration of loop here.
+  while (!Done())
+  {
+    AdvanceOnePlay(players, rng);
   }
   return CheckForShootTheMoon();
 }

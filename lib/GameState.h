@@ -47,6 +47,8 @@ public:
 
   Card NextPlay(const StrategyPtr& currentPlayersStrategy, const RandomGenerator& rng);
 
+  void AdvanceOnePlay(StrategyPtr players[4], const RandomGenerator& rng);
+
   void PrintHand(int player) const { mHands[player].Print(); }
 
   const CardHand& HandForPlayer(unsigned player) const { return mHands[player]; }
