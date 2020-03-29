@@ -4,6 +4,7 @@
 #include "lib/GameState.h"
 #include "lib/HeartsState.h"
 #include "lib/Strategy.h"
+#include "lib/VisibleState.hpp"
 
 typedef std::function<void(int, int, Card)> PlayCardHook;
 typedef std::function<void(int, std::array<unsigned, 4>)> TrickResultHook;
@@ -49,6 +50,8 @@ public:
   void PrintHand(int player) const { mHands[player].Print(); }
 
   const CardHand& HandForPlayer(unsigned player) const { return mHands[player]; }
+
+  visible::VisibleState asVisibleState(unsigned player) const;
 
 private:
   void PrintPlay(int player, Card card) const;

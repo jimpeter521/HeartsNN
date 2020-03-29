@@ -210,3 +210,21 @@ Card GameState::NextPlay(const StrategyPtr& currentPlayersStrategy, const Random
   PlayCard(card);
   return card;
 }
+
+visible::VisibleState GameState::asVisibleState(unsigned player) const
+{
+  KnowableState knowable{*this};
+  auto builder = visible::VisibleState::Builder();
+  builder.add(knowable.CurrentPlayersHand());
+
+  unsigned p = knowable.PlayerLeadingTrick();
+  unsigned numOnTable = knowable.PlayInTrick();
+  for (auto i=0; i<numOnTable; ++i)
+  {
+    Card card = knowable.GetTrickPlay(i);
+    builder.played(p, card);
+    p = (p+1) % 4;
+  }
+
+  return builder.build();
+}
