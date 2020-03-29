@@ -1,5 +1,6 @@
 #include "websockets/CardsWebServer.hpp"
 #include "lib/VisibleState.hpp"
+#include "lib/GameState.h"
 
 #include <App.h>
 
@@ -81,9 +82,6 @@ void CardsWebServer::Impl::launch(const std::string& root, int port)
     {
         PerSocketData()
         {
-            for (uint8_t i=0; i<kCardsInDeck; ++i) { mDeck[i] = i; }
-            unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
-            std::shuffle(mDeck.begin(), mDeck.end(), std::default_random_engine(seed));
         }
 
         static PerSocketData* data(Socket* ws) { return reinterpret_cast<PerSocketData*>(ws->getUserData()); }
@@ -92,19 +90,22 @@ void CardsWebServer::Impl::launch(const std::string& root, int port)
         {
             for (int i=0; i<13; i++)
             {
-                dealCard(ws, mDeck[i]);
+                dealCard(ws, gameState.HandForPlayer(VisibleState::SOUTH).NthCard(i));
             }
         }
 
         void dummyTrick(Socket* ws)
         {
-            playCard(ws, mDeck[0], VisibleState::SOUTH); // play first card we dealt to human above
-            playCard(ws, mDeck[13], VisibleState::WEST);
-            playCard(ws, mDeck[14], VisibleState::NORTH);
-            playCard(ws, mDeck[15], VisibleState::EAST);
+            playCard(ws, gameState.HandForPlayer(VisibleState::SOUTH).FirstCard(), VisibleState::SOUTH); // play first card we dealt to human above
+            playCard(ws, gameState.HandForPlayer(VisibleState::WEST).FirstCard(), VisibleState::WEST);
+            playCard(ws, gameState.HandForPlayer(VisibleState::NORTH).FirstCard(), VisibleState::NORTH);
+            playCard(ws, gameState.HandForPlayer(VisibleState::EAST).FirstCard(), VisibleState::EAST);
         }
 
-        std::array<uint8_t, kCardsInDeck> mDeck;
+        ;
+        uint128_t N{Deal::RandomDealIndex()};
+        Deal deal{N};
+        GameState gameState{deal};
     };
 
     // Serve HTTP
